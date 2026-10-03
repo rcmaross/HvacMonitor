@@ -58,13 +58,16 @@ namespace
     // underneath it.
     //
 
-    constexpr int SCALE_MIN_X = 47;
     constexpr int SCALE_MIN_WIDTH = 29;
+    constexpr int SCALE_GAP = 3;
 
     constexpr int SCALE_X = GRAPH_X;
     constexpr int SCALE_WIDTH = GRAPH_WIDTH;
 
-    constexpr int SCALE_GAP = 3;
+    constexpr int SCALE_MIN_X =
+        SCALE_X -
+        SCALE_GAP -
+        SCALE_MIN_WIDTH;
 
     constexpr int SCALE_MAX_X =
         SCALE_X +
