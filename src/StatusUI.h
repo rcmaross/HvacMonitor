@@ -12,11 +12,11 @@ public:
     void update();
 
 private:
-    struct Thermometer
+    struct TemperatureRow
     {
-        lv_obj_t* tube = nullptr;
-        lv_obj_t* fill = nullptr;
-        lv_obj_t* bulb = nullptr;
+        lv_obj_t* name = nullptr;
+        lv_obj_t* track = nullptr;
+        lv_obj_t* marker = nullptr;
         lv_obj_t* value = nullptr;
     };
 
@@ -24,23 +24,38 @@ private:
 
     lv_obj_t* _root = nullptr;
 
-    Thermometer _large;
-    Thermometer _small;
-    Thermometer _outdoor;
+    TemperatureRow _large;
+    TemperatureRow _small;
+    TemperatureRow _outdoor;
+
+    lv_obj_t* _scaleBar = nullptr;
+    lv_obj_t* _scaleMin = nullptr;
+    lv_obj_t* _scaleMax = nullptr;
 
     lv_obj_t* _systemStatus = nullptr;
     lv_obj_t* _performanceStatus = nullptr;
 
-    void createThermometer(
+    float _displayMin = 0.0f;
+    float _displayMax = 100.0f;
+
+    void createTemperatureRow(
         lv_obj_t* parent,
         const char* name,
-        int centerX,
-        Thermometer& thermometer
+        int y,
+        lv_color_t color,
+        TemperatureRow& row
     );
 
-    void updateThermometer(
-        Thermometer& thermometer,
-        float temperature,
-        lv_color_t color
+    void createScale(lv_obj_t* parent);
+
+    void updateTemperatureRow(
+        TemperatureRow& row,
+        float temperature
+    );
+
+    void updateScale(
+        float large,
+        float small,
+        float outdoor
     );
 };

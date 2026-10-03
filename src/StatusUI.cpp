@@ -5,14 +5,87 @@
 
 namespace
 {
-    constexpr int TUBE_WIDTH = 12;
-    constexpr int TUBE_HEIGHT = 58;
-    constexpr int BULB_SIZE = 24;
+    //
+    // Layout
+    //
+    // Compact temperature area. This deliberately leaves room above
+    // for a future fixed header.
+    //
+    constexpr int SCREEN_WIDTH = 320;
 
-    constexpr int TUBE_TOP = 32;
+    constexpr int LEFT_MARGIN = 6;
+    constexpr int RIGHT_MARGIN = 6;
+    constexpr int HEADER_HEIGHT = 40;
 
-    constexpr float TEMP_MIN = 0.0f;
-    constexpr float TEMP_MAX = 100.0f;
+    constexpr int NAME_WIDTH = 78;
+    constexpr int VALUE_WIDTH = 40;
+
+    constexpr int COLUMN_GAP = 4;
+
+    constexpr int NAME_X = LEFT_MARGIN;
+
+    constexpr int GRAPH_X =
+        NAME_X +
+        NAME_WIDTH +
+        COLUMN_GAP;
+
+    constexpr int VALUE_X =
+        SCREEN_WIDTH -
+        RIGHT_MARGIN -
+        VALUE_WIDTH;
+
+    constexpr int GRAPH_WIDTH =
+        VALUE_X -
+        COLUMN_GAP -
+        GRAPH_X;
+
+    constexpr int ROW_SPACING = 22;
+
+    constexpr int ROW_LARGE_Y   = HEADER_HEIGHT + 4;   
+    constexpr int ROW_SMALL_Y   = ROW_LARGE_Y + ROW_SPACING;  
+    constexpr int ROW_OUTDOOR_Y = ROW_SMALL_Y + ROW_SPACING;  
+    constexpr int SCALE_Y = ROW_OUTDOOR_Y + ROW_SPACING;
+    constexpr int SYSTEM_STATUS_Y = SCALE_Y + ROW_SPACING;
+    constexpr int PERFORMANCE_STATUS_Y =  SYSTEM_STATUS_Y + ROW_SPACING;
+
+    constexpr int TRACK_Y_OFFSET = 8;
+    constexpr int TRACK_HEIGHT = 3;
+
+    constexpr int MARKER_SIZE = 10;
+
+    //
+    // Scale endpoints now sit beside the gradient rather than
+    // underneath it.
+    //
+
+    constexpr int SCALE_MIN_X = 47;
+    constexpr int SCALE_MIN_WIDTH = 29;
+
+    constexpr int SCALE_X = GRAPH_X;
+    constexpr int SCALE_WIDTH = GRAPH_WIDTH;
+
+    constexpr int SCALE_GAP = 3;
+
+    constexpr int SCALE_MAX_X =
+        SCALE_X +
+        SCALE_WIDTH +
+        SCALE_GAP;
+
+    constexpr int SCALE_MAX_WIDTH = 29;
+
+    constexpr int SCALE_HEIGHT = 7;
+
+    //
+    // Dynamic scale
+    //
+
+    constexpr float MIN_DISPLAY_SPAN = 20.0f;
+    constexpr float SCALE_PADDING = 5.0f;
+    constexpr float SCALE_INCREMENT = 5.0f;
+
+    //
+    // Colors
+    //
 
     const lv_color_t BACKGROUND =
         lv_color_hex(0x101418);
@@ -23,8 +96,8 @@ namespace
     const lv_color_t SECONDARY_TEXT =
         lv_color_hex(0xAEB7BF);
 
-    const lv_color_t THERMOMETER_BORDER =
-        lv_color_hex(0x78838C);
+    const lv_color_t TRACK_COLOR =
+        lv_color_hex(0x505860);
 
     const lv_color_t LARGE_COLOR =
         lv_color_hex(0x4CAF50);
@@ -34,6 +107,32 @@ namespace
 
     const lv_color_t OUTDOOR_COLOR =
         lv_color_hex(0x2196F3);
+
+    //
+    // Spectrum colors
+    //
+
+    const lv_color_t SPECTRUM_COLD =
+        lv_color_hex(0x1546A0);
+
+    const lv_color_t SPECTRUM_HOT =
+        lv_color_hex(0xD62828);
+
+    float roundDown(
+        float value,
+        float increment
+    )
+    {
+        return floorf(value / increment) * increment;
+    }
+
+    float roundUp(
+        float value,
+        float increment
+    )
+    {
+        return ceilf(value / increment) * increment;
+    }
 }
 
 StatusUI::StatusUI(
@@ -80,29 +179,38 @@ StatusUI::StatusUI(
     );
 
     //
-    // Three temperature channels
+    // Temperature rows
     //
 
-    createThermometer(
+    createTemperatureRow(
         _root,
         "LARGE",
-        53,
+        ROW_LARGE_Y,
+        LARGE_COLOR,
         _large
     );
 
-    createThermometer(
+    createTemperatureRow(
         _root,
         "SMALL",
-        160,
+        ROW_SMALL_Y,
+        SMALL_COLOR,
         _small
     );
 
-    createThermometer(
+    createTemperatureRow(
         _root,
         "OUTDOOR",
-        267,
+        ROW_OUTDOOR_Y,
+        OUTDOOR_COLOR,
         _outdoor
     );
+
+    //
+    // Shared temperature spectrum
+    //
+
+    createScale(_root);
 
     //
     // HVAC state
@@ -132,7 +240,7 @@ StatusUI::StatusUI(
         _systemStatus,
         LV_ALIGN_TOP_MID,
         0,
-        151
+        SYSTEM_STATUS_Y
     );
 
     //
@@ -163,7 +271,7 @@ StatusUI::StatusUI(
         _performanceStatus,
         LV_ALIGN_TOP_MID,
         0,
-        173
+        PERFORMANCE_STATUS_Y
     );
 }
 
@@ -176,202 +284,160 @@ StatusUI::~StatusUI()
     }
 }
 
-void StatusUI::createThermometer(
+void StatusUI::createTemperatureRow(
     lv_obj_t* parent,
     const char* name,
-    int centerX,
-    Thermometer& thermometer
+    int y,
+    lv_color_t color,
+    TemperatureRow& row
 )
 {
     //
-    // Channel name
+    // Sensor name
     //
 
-    lv_obj_t* nameLabel =
+    row.name =
         lv_label_create(parent);
 
     lv_label_set_text(
-        nameLabel,
+        row.name,
         name
     );
 
+    lv_obj_set_width(
+        row.name,
+        NAME_WIDTH
+    );
+
+    lv_obj_set_pos(
+        row.name,
+        NAME_X,
+        y
+    );
+
     lv_obj_set_style_text_color(
-        nameLabel,
-        SECONDARY_TEXT,
+        row.name,
+        color,
         0
     );
 
     lv_obj_set_style_text_font(
-        nameLabel,
+        row.name,
         &lv_font_montserrat_14,
         0
     );
 
-    constexpr int LABEL_WIDTH = 100;
-
-    lv_obj_set_width(
-        nameLabel,
-        LABEL_WIDTH
-    );
-
     lv_obj_set_style_text_align(
-        nameLabel,
-        LV_TEXT_ALIGN_CENTER,
+        row.name,
+        LV_TEXT_ALIGN_LEFT,
         0
     );
 
-    lv_obj_set_pos(
-        nameLabel,
-        centerX - LABEL_WIDTH / 2,
-        8
-    );
-
     //
-    // Thermometer tube
+    // Horizontal track
     //
 
-    thermometer.tube =
+    row.track =
         lv_obj_create(parent);
 
     lv_obj_set_size(
-        thermometer.tube,
-        TUBE_WIDTH,
-        TUBE_HEIGHT
+        row.track,
+        GRAPH_WIDTH,
+        TRACK_HEIGHT
     );
 
     lv_obj_set_pos(
-        thermometer.tube,
-        centerX - TUBE_WIDTH / 2,
-        TUBE_TOP
+        row.track,
+        GRAPH_X,
+        y + TRACK_Y_OFFSET
+    );
+
+    lv_obj_set_style_bg_color(
+        row.track,
+        TRACK_COLOR,
+        0
     );
 
     lv_obj_set_style_bg_opa(
-        thermometer.tube,
-        LV_OPA_TRANSP,
+        row.track,
+        LV_OPA_COVER,
         0
     );
 
     lv_obj_set_style_border_width(
-        thermometer.tube,
-        2,
-        0
-    );
-
-    lv_obj_set_style_border_color(
-        thermometer.tube,
-        THERMOMETER_BORDER,
-        0
-    );
-
-    lv_obj_set_style_radius(
-        thermometer.tube,
-        TUBE_WIDTH / 2,
-        0
-    );
-
-    lv_obj_set_style_pad_all(
-        thermometer.tube,
-        2,
-        0
-    );
-
-    lv_obj_set_scrollable(
-        thermometer.tube,
-        false
-    );
-
-    //
-    // Liquid inside tube
-    //
-
-    thermometer.fill =
-        lv_obj_create(thermometer.tube);
-
-    lv_obj_set_width(
-        thermometer.fill,
-        4
-    );
-
-    lv_obj_set_height(
-        thermometer.fill,
-        1
-    );
-
-    lv_obj_align(
-        thermometer.fill,
-        LV_ALIGN_BOTTOM_MID,
-        0,
-        0
-    );
-
-    lv_obj_set_style_border_width(
-        thermometer.fill,
+        row.track,
         0,
         0
     );
 
     lv_obj_set_style_radius(
-        thermometer.fill,
-        2,
+        row.track,
+        TRACK_HEIGHT / 2,
         0
     );
 
     lv_obj_set_style_pad_all(
-        thermometer.fill,
+        row.track,
         0,
         0
     );
 
     lv_obj_set_scrollable(
-        thermometer.fill,
+        row.track,
         false
     );
 
     //
-    // Bulb
+    // Temperature marker
     //
 
-    thermometer.bulb =
+    row.marker =
         lv_obj_create(parent);
 
     lv_obj_set_size(
-        thermometer.bulb,
-        BULB_SIZE,
-        BULB_SIZE
-    );
-
-    lv_obj_set_pos(
-        thermometer.bulb,
-        centerX - BULB_SIZE / 2,
-        TUBE_TOP + TUBE_HEIGHT - 5
+        row.marker,
+        MARKER_SIZE,
+        MARKER_SIZE
     );
 
     lv_obj_set_style_radius(
-        thermometer.bulb,
+        row.marker,
         LV_RADIUS_CIRCLE,
         0
     );
 
+    lv_obj_set_style_bg_color(
+        row.marker,
+        color,
+        0
+    );
+
+    lv_obj_set_style_bg_opa(
+        row.marker,
+        LV_OPA_COVER,
+        0
+    );
+
     lv_obj_set_style_border_width(
-        thermometer.bulb,
-        2,
+        row.marker,
+        1,
         0
     );
 
     lv_obj_set_style_border_color(
-        thermometer.bulb,
-        THERMOMETER_BORDER,
+        row.marker,
+        PRIMARY_TEXT,
         0
     );
 
     lv_obj_set_style_pad_all(
-        thermometer.bulb,
+        row.marker,
         0,
         0
     );
 
     lv_obj_set_scrollable(
-        thermometer.bulb,
+        row.marker,
         false
     );
 
@@ -379,63 +445,308 @@ void StatusUI::createThermometer(
     // Numeric temperature
     //
 
-    thermometer.value =
+    row.value =
         lv_label_create(parent);
 
     lv_label_set_text(
-        thermometer.value,
-        "--.- F"
+        row.value,
+        "--.-"
+    );
+
+    lv_obj_set_width(
+        row.value,
+        VALUE_WIDTH
+    );
+
+    lv_obj_set_pos(
+        row.value,
+        VALUE_X,
+        y
     );
 
     lv_obj_set_style_text_color(
-        thermometer.value,
+        row.value,
         PRIMARY_TEXT,
         0
     );
 
+    //
+    // Smaller than the previous 20-point temperature display.
+    //
+
     lv_obj_set_style_text_font(
-        thermometer.value,
-        &lv_font_montserrat_20,
+        row.value,
+        &lv_font_montserrat_14,
         0
     );
 
-    lv_obj_align(
-        thermometer.value,
-        LV_ALIGN_TOP_LEFT,
-        centerX,
-        113
-    );
-
-    lv_obj_set_x(
-        thermometer.value,
-        centerX -
-            lv_obj_get_width(thermometer.value) / 2
+    lv_obj_set_style_text_align(
+        row.value,
+        LV_TEXT_ALIGN_RIGHT,
+        0
     );
 }
 
-void StatusUI::updateThermometer(
-    Thermometer& thermometer,
-    float temperature,
-    lv_color_t color
+void StatusUI::createScale(
+    lv_obj_t* parent
 )
 {
-    if (isnan(temperature))
+    //
+    // Minimum value - immediately to the left of the spectrum.
+    //
+
+    _scaleMin =
+        lv_label_create(parent);
+
+    lv_label_set_text(
+        _scaleMin,
+        "--"
+    );
+
+    lv_obj_set_width(
+        _scaleMin,
+        SCALE_MIN_WIDTH
+    );
+
+    lv_obj_set_pos(
+        _scaleMin,
+        SCALE_MIN_X,
+        SCALE_Y - 5
+    );
+
+    lv_obj_set_style_text_color(
+        _scaleMin,
+        SECONDARY_TEXT,
+        0
+    );
+
+    lv_obj_set_style_text_font(
+        _scaleMin,
+        &lv_font_montserrat_14,
+        0
+    );
+
+    lv_obj_set_style_text_align(
+        _scaleMin,
+        LV_TEXT_ALIGN_RIGHT,
+        0
+    );
+
+    //
+    // Spectrum
+    //
+
+    _scaleBar =
+        lv_obj_create(parent);
+
+    lv_obj_set_size(
+        _scaleBar,
+        SCALE_WIDTH,
+        SCALE_HEIGHT
+    );
+
+    lv_obj_set_pos(
+        _scaleBar,
+        SCALE_X,
+        SCALE_Y
+    );
+
+    lv_obj_set_style_border_width(
+        _scaleBar,
+        0,
+        0
+    );
+
+    lv_obj_set_style_radius(
+        _scaleBar,
+        SCALE_HEIGHT / 2,
+        0
+    );
+
+    lv_obj_set_style_pad_all(
+        _scaleBar,
+        0,
+        0
+    );
+
+    lv_obj_set_scrollable(
+        _scaleBar,
+        false
+    );
+
+    lv_obj_set_style_bg_color(
+        _scaleBar,
+        SPECTRUM_COLD,
+        0
+    );
+
+    lv_obj_set_style_bg_grad_color(
+        _scaleBar,
+        SPECTRUM_HOT,
+        0
+    );
+
+    lv_obj_set_style_bg_grad_dir(
+        _scaleBar,
+        LV_GRAD_DIR_HOR,
+        0
+    );
+
+    lv_obj_set_style_bg_opa(
+        _scaleBar,
+        LV_OPA_COVER,
+        0
+    );
+
+    //
+    // Maximum value - immediately to the right of the spectrum.
+    //
+
+    _scaleMax =
+        lv_label_create(parent);
+
+    lv_label_set_text(
+        _scaleMax,
+        "--"
+    );
+
+    lv_obj_set_width(
+        _scaleMax,
+        SCALE_MAX_WIDTH
+    );
+
+    lv_obj_set_pos(
+        _scaleMax,
+        SCALE_MAX_X,
+        SCALE_Y - 5
+    );
+
+    lv_obj_set_style_text_color(
+        _scaleMax,
+        SECONDARY_TEXT,
+        0
+    );
+
+    lv_obj_set_style_text_font(
+        _scaleMax,
+        &lv_font_montserrat_14,
+        0
+    );
+
+    lv_obj_set_style_text_align(
+        _scaleMax,
+        LV_TEXT_ALIGN_LEFT,
+        0
+    );
+}
+
+void StatusUI::updateScale(
+    float large,
+    float small,
+    float outdoor
+)
+{
+    //
+    // Find the minimum and maximum valid readings.
+    //
+
+    bool haveTemperature = false;
+
+    float lowTemp = 0.0f;
+    float highTemp = 0.0f;
+
+    const float temperatures[] =
     {
+        large,
+        small,
+        outdoor
+    };
+
+    for (float temperature : temperatures)
+    {
+        if (isnan(temperature))
+            continue;
+
+        if (!haveTemperature)
+        {
+            lowTemp = temperature;
+            highTemp = temperature;
+            haveTemperature = true;
+        }
+        else
+        {
+            if (temperature < lowTemp)
+                lowTemp = temperature;
+
+            if (temperature > highTemp)
+                highTemp = temperature;
+        }
+    }
+
+    if (!haveTemperature)
+    {
+        _displayMin = 0.0f;
+        _displayMax = 100.0f;
+
         lv_label_set_text(
-            thermometer.value,
-            "--.- F"
+            _scaleMin,
+            "--"
         );
 
-        lv_obj_set_height(
-            thermometer.fill,
-            1
+        lv_label_set_text(
+            _scaleMax,
+            "--"
         );
 
         return;
     }
 
     //
-    // Numeric value
+    // Determine the span required to contain all sensors
+    // plus padding.
+    //
+
+    float requiredSpan =
+        (highTemp - lowTemp) +
+        (2.0f * SCALE_PADDING);
+
+    float displaySpan =
+        requiredSpan;
+
+    if (displaySpan < MIN_DISPLAY_SPAN)
+        displaySpan = MIN_DISPLAY_SPAN;
+
+    //
+    // Center the range around the current readings.
+    //
+
+    float center =
+        (lowTemp + highTemp) / 2.0f;
+
+    float rawMin =
+        center - displaySpan / 2.0f;
+
+    float rawMax =
+        center + displaySpan / 2.0f;
+
+    //
+    // Round outward to clean 5-degree boundaries.
+    //
+
+    _displayMin =
+        roundDown(
+            rawMin,
+            SCALE_INCREMENT
+        );
+
+    _displayMax =
+        roundUp(
+            rawMax,
+            SCALE_INCREMENT
+        );
+
+    //
+    // Update endpoint labels.
     //
 
     char buffer[16];
@@ -443,110 +754,140 @@ void StatusUI::updateThermometer(
     snprintf(
         buffer,
         sizeof(buffer),
-        "%.1f F",
+        "%.0f",
+        _displayMin
+    );
+
+    lv_label_set_text(
+        _scaleMin,
+        buffer
+    );
+
+    snprintf(
+        buffer,
+        sizeof(buffer),
+        "%.0f",
+        _displayMax
+    );
+
+    lv_label_set_text(
+        _scaleMax,
+        buffer
+    );
+}
+
+void StatusUI::updateTemperatureRow(
+    TemperatureRow& row,
+    float temperature
+)
+{
+    if (isnan(temperature))
+    {
+        lv_label_set_text(
+            row.value,
+            "--.-"
+        );
+
+        //
+        // LVGL 9.6 dedicated setter.
+        //
+
+        lv_obj_set_hidden(
+            row.marker,
+            true
+        );
+
+        return;
+    }
+
+    lv_obj_set_hidden(
+        row.marker,
+        false
+    );
+
+    //
+    // Numeric temperature
+    //
+
+    char buffer[16];
+
+    snprintf(
+        buffer,
+        sizeof(buffer),
+        "%.1f",
         temperature
     );
 
     lv_label_set_text(
-        thermometer.value,
+        row.value,
         buffer
     );
 
     //
-    // Keep value centered after its width changes.
+    // Map the temperature to the shared graph.
     //
-
-    lv_obj_t* parent =
-        lv_obj_get_parent(thermometer.value);
-
-    int centerX =
-        lv_obj_get_x(thermometer.tube) +
-        TUBE_WIDTH / 2;
-
-    lv_obj_set_x(
-        thermometer.value,
-        centerX -
-            lv_obj_get_width(thermometer.value) / 2
-    );
-
-    //
-    // Clamp graphical temperature.
-    //
-
-    float displayTemp = temperature;
-
-    if (displayTemp < TEMP_MIN)
-        displayTemp = TEMP_MIN;
-
-    if (displayTemp > TEMP_MAX)
-        displayTemp = TEMP_MAX;
 
     float fraction =
-        (displayTemp - TEMP_MIN) /
-        (TEMP_MAX - TEMP_MIN);
+        (temperature - _displayMin) /
+        (_displayMax - _displayMin);
 
-    constexpr int MAX_FILL_HEIGHT =
-        TUBE_HEIGHT - 8;
+    if (fraction < 0.0f)
+        fraction = 0.0f;
 
-    int fillHeight =
-        1 +
+    if (fraction > 1.0f)
+        fraction = 1.0f;
+
+    int markerCenterX =
+        GRAPH_X +
         static_cast<int>(
-            fraction *
-            (MAX_FILL_HEIGHT - 1)
+            fraction * GRAPH_WIDTH
         );
 
-    lv_obj_set_height(
-        thermometer.fill,
-        fillHeight
-    );
+    int trackY =
+        lv_obj_get_y(row.track);
 
-    //
-    // Apply channel color.
-    //
-
-    lv_obj_set_style_bg_color(
-        thermometer.fill,
-        color,
-        0
-    );
-
-    lv_obj_set_style_bg_opa(
-        thermometer.fill,
-        LV_OPA_COVER,
-        0
-    );
-
-    lv_obj_set_style_bg_color(
-        thermometer.bulb,
-        color,
-        0
-    );
-
-    lv_obj_set_style_bg_opa(
-        thermometer.bulb,
-        LV_OPA_COVER,
-        0
+    lv_obj_set_pos(
+        row.marker,
+        markerCenterX - MARKER_SIZE / 2,
+        trackY -
+            (MARKER_SIZE - TRACK_HEIGHT) / 2
     );
 }
 
 void StatusUI::update()
 {
-    updateThermometer(
+    float large =
+        _status.largePipeTemperature();
+
+    float small =
+        _status.smallPipeTemperature();
+
+    float outdoor =
+        _status.outdoorTemperature();
+
+    //
+    // Calculate the common scale before positioning markers.
+    //
+
+    updateScale(
+        large,
+        small,
+        outdoor
+    );
+
+    updateTemperatureRow(
         _large,
-        _status.largePipeTemperature(),
-        LARGE_COLOR
+        large
     );
 
-    updateThermometer(
+    updateTemperatureRow(
         _small,
-        _status.smallPipeTemperature(),
-        SMALL_COLOR
+        small
     );
 
-    updateThermometer(
+    updateTemperatureRow(
         _outdoor,
-        _status.outdoorTemperature(),
-        OUTDOOR_COLOR
+        outdoor
     );
 
     //

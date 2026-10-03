@@ -5,13 +5,13 @@
 #include "Status.h"
 #include "UIManager.h"
 
+
 class App
 {
 public:
     void begin();
     void run();
     void printMemoryStats();
-
 private:
     static constexpr size_t MAX_TEMP_SENSORS = 8;
     String tz_posix_rule = "EST5EDT,M3.2.0,M11.1.0";
