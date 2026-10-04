@@ -98,51 +98,29 @@ void App::begin()
 */
 }
 
+void App::runEverySecond()
+{
+    _status->update();
+    _ui->update();
+
+    _lvgl.printLvglMemory("loop");
+}
+
 void App::run()
 {
     M5.update();
 
-    TemperatureSensor* largeSensor = getTemperatureSensor("Large");
-    float largePipe = largeSensor->readFahrenheit();
-    TemperatureSensor* smallSensor = getTemperatureSensor("Small");
-    float smallPipe = smallSensor->readFahrenheit();
-    TemperatureSensor* outdoorSensor = getTemperatureSensor("Outdoor");
-    float outdoor = outdoorSensor->readFahrenheit();
-    // Serial output for debugging
-    /*
-    Serial.printf(
-        "Large: %.2f F   Small: %.2f F   Outdoor: %.2f F\n",
-        largePipe,
-        smallPipe,
-        outdoor
-    );
-   */
-  _status->update();
-  _ui->update();
+    _lvgl.update();
 
-  _lvgl.update();
-  /*
-    // Update screen
-    M5.Display.fillScreen(BLACK);
+    static uint32_t lastUpdate = 0;
+    uint32_t now = millis();
 
-    M5.Display.setTextSize(2);
+    if (now - lastUpdate >= ONESECOND_INTERVAL_MS)
+    {
+        lastUpdate = now;
+        runEverySecond();
+    }
 
-    M5.Display.setCursor(20, 20);
-    M5.Display.println("AC Leak Detector");
-
-    M5.Display.setTextSize(3);
-
-    M5.Display.setCursor(20, 70);
-    M5.Display.printf("Large:  %.1f F", largePipe);
-
-    M5.Display.setCursor(20, 120);
-    M5.Display.printf("Small:  %.1f F", smallPipe);
-
-    M5.Display.setCursor(20, 170);
-    M5.Display.printf("Outdoor: %.1f F", outdoor);
-    
-    delay(1000);
-    */
     delay(5);
 }
 

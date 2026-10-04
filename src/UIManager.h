@@ -2,7 +2,7 @@
 
 #include <lvgl.h>
 #include "Status.h"
-#include "StatusUI.h"
+#include "ScreenUI.h"
 
 class UIManager
 {
@@ -29,7 +29,7 @@ private:
     lv_obj_t* _settingsButton = nullptr;
     lv_obj_t* _networkButton = nullptr;
 
-    StatusUI* _statusUI = nullptr;
+    ScreenUI* _currentUI = nullptr;
 
     Screen _currentScreen = Screen::Status;
 

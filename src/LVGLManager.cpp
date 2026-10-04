@@ -37,6 +37,9 @@ void LVGLManager::begin()
         display,
         flushDisplay
     );
+    lv_indev_t* touch = lv_indev_create();
+    lv_indev_set_type(touch, LV_INDEV_TYPE_POINTER);
+    lv_indev_set_read_cb(touch, readTouch);
 }
 
 void LVGLManager::update()
@@ -76,6 +79,21 @@ void LVGLManager::flushDisplay(
     lv_display_flush_ready(display);
 }
 
+void LVGLManager::readTouch(lv_indev_t*, lv_indev_data_t* data)
+{
+    auto touch = M5.Touch.getDetail();
+
+    if (touch.isPressed())
+    {
+        data->state = LV_INDEV_STATE_PRESSED;
+        data->point.x = touch.x;
+        data->point.y = touch.y;
+    }
+    else
+    {
+        data->state = LV_INDEV_STATE_RELEASED;
+    }
+}
 void LVGLManager::printLvglMemory(const char *where)
 {
     lv_mem_monitor_t m;

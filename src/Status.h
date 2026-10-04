@@ -18,7 +18,6 @@ public:
     float outdoorTemperature()   const { return _outdoorTemperature; }
 
 private:
-    static constexpr uint32_t UPDATE_INTERVAL_MS = 1000;
 
     TemperatureSensor* _largePipeSensor;
     TemperatureSensor* _smallPipeSensor;

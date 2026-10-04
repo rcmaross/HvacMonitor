@@ -13,17 +13,6 @@ Status::Status(
 
 void Status::update()
 {
-    static uint32_t _lastUpdate = 0;
-    uint32_t now = millis();
-
-    if (_lastUpdate != 0 &&
-        now - _lastUpdate < UPDATE_INTERVAL_MS)
-    {
-        return;
-    }
-
-    _lastUpdate = now;
-
     _largePipeTemperature =
         _largePipeSensor->readFahrenheit();
 

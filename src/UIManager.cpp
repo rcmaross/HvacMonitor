@@ -1,6 +1,10 @@
 #include "UIManager.h"
+#include "UIConfig.h"
 
-static constexpr int TAB_BAR_HEIGHT = 42;
+#include "StatusUI.h"
+#include "SettingsUI.h"
+#include "NetworkUI.h"
+#include "UIConfig.h"
 
 UIManager::UIManager(Status& status)
     : _status(status)
@@ -24,15 +28,14 @@ UIManager::UIManager(Status& status)
 
     lv_obj_set_size(
         _contentArea,
-        LV_PCT(100),
-        240 - TAB_BAR_HEIGHT
+        UIConfig::SCREEN_WIDTH,
+        UIConfig::CONTENT_HEIGHT
     );
 
-    lv_obj_align(
+    lv_obj_set_pos(
         _contentArea,
-        LV_ALIGN_TOP_MID,
         0,
-        0
+        UIConfig::CONTENT_Y
     );
 
     lv_obj_set_style_bg_color(
@@ -69,8 +72,8 @@ void UIManager::createNavigation()
 
     lv_obj_set_size(
         _tabBar,
-        LV_PCT(100),
-        TAB_BAR_HEIGHT
+        UIConfig::SCREEN_WIDTH,
+        UIConfig::TAB_BAR_HEIGHT
     );
 
     lv_obj_align(
@@ -156,10 +159,10 @@ void UIManager::createNavigation()
 
 void UIManager::clearCurrentScreen()
 {
-    if (_statusUI)
+    if (_currentUI)
     {
-        delete _statusUI;
-        _statusUI = nullptr;
+        delete _currentUI;
+        _currentUI = nullptr;
     }
 
     // SettingsUI and NetworkUI will eventually be handled here too.
@@ -174,36 +177,28 @@ void UIManager::showScreen(Screen screen)
     switch (screen)
     {
         case Screen::Status:
-            _statusUI =
-                new StatusUI(_contentArea, _status);
+            _currentUI = new StatusUI(_contentArea, _status);
             break;
 
         case Screen::Settings:
-        {
-            lv_obj_t* label =
-                lv_label_create(_contentArea);
-
-            lv_label_set_text(label, "Settings");
-            lv_obj_center(label);
+            _currentUI = new SettingsUI(_contentArea);
             break;
-        }
 
         case Screen::Network:
-        {
-            lv_obj_t* label =
-                lv_label_create(_contentArea);
-
-            lv_label_set_text(label, "Network");
-            lv_obj_center(label);
+            _currentUI = new NetworkUI(_contentArea);
             break;
-        }
     }
-}
 
+    if (_currentUI) {
+        lv_obj_update_layout(_contentArea);
+        _currentUI->update();
+    }
+
+}
 void UIManager::update()
 {
-    if (_statusUI)
-        _statusUI->update();
+    if (_currentUI)
+        _currentUI->update();
 }
 
 void UIManager::statusButtonClicked(lv_event_t* event)

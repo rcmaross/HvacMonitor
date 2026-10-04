@@ -13,11 +13,13 @@ public:
     void run();
     void printMemoryStats();
 private:
+    static constexpr uint32_t ONESECOND_INTERVAL_MS = 1000;
     static constexpr size_t MAX_TEMP_SENSORS = 8;
     String tz_posix_rule = "EST5EDT,M3.2.0,M11.1.0";
 
     TemperatureSensor* tempSensors[MAX_TEMP_SENSORS] = {};
     size_t tempSensorCount = 0;
+    void runEverySecond();
 
     TemperatureSensor* addTemperatureSensor(
         const char* name,

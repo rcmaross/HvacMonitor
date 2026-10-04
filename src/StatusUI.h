@@ -2,14 +2,15 @@
 
 #include <lvgl.h>
 #include "Status.h"
+#include "ScreenUI.h"
 
-class StatusUI
+class StatusUI : public ScreenUI
 {
 public:
     StatusUI(lv_obj_t* parent, Status& status);
-    ~StatusUI();
+    virtual ~StatusUI() override;
 
-    void update();
+    void update() override;
 
 private:
     struct TemperatureRow

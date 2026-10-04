@@ -17,9 +17,6 @@ private:
 
     static uint16_t _drawBuffer[SCREEN_WIDTH * BUFFER_LINES];
 
-    static void flushDisplay(
-        lv_display_t* display,
-        const lv_area_t* area,
-        uint8_t* pixelMap
-    );
+    static void flushDisplay( lv_display_t* display, const lv_area_t* area, uint8_t* pixelMap);
+    static void readTouch(lv_indev_t* indev, lv_indev_data_t* data);
 };
