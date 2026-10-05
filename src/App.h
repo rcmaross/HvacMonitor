@@ -3,6 +3,7 @@
 #include "TempSensor.h"
 #include "LVGLManager.h"
 #include "Status.h"
+#include "Network.h"
 #include "UIManager.h"
 
 
@@ -31,5 +32,6 @@ private:
     LVGLManager _lvgl;
 
     Status* _status = nullptr;
+    Network* _network = nullptr;
     UIManager* _ui = nullptr;
 };

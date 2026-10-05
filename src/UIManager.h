@@ -3,11 +3,12 @@
 #include <lvgl.h>
 #include "Status.h"
 #include "ScreenUI.h"
+#include "Network.h"
 
 class UIManager
 {
 public:
-    UIManager(Status& status);
+    UIManager(Status& status, Network& network);
     ~UIManager();
 
     void update();
@@ -21,7 +22,8 @@ private:
     };
 
     Status& _status;
-
+    Network& _network;
+    
     lv_obj_t* _contentArea = nullptr;
     lv_obj_t* _tabBar = nullptr;
 

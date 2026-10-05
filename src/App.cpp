@@ -1,6 +1,7 @@
 #include "App.h"
 #include <M5Unified.h>
 #include <esp_heap_caps.h>
+#include <driver/gpio.h>
 
 extern "C" {
     extern char _data_start;
@@ -11,9 +12,12 @@ extern "C" {
 // ------------------------------------------------------------
 // Sensor GPIOs
 // ------------------------------------------------------------
-const int LARGE_PIPE_PIN     = 25;
-const int SMALL_PIPE_PIN     = 26;
-const int OUTDOOR_AMBIENT_PIN = 13;
+//const int LARGE_PIPE_PIN     = 25;
+//const int SMALL_PIPE_PIN     = 26;
+//const int OUTDOOR_AMBIENT_PIN = 13;
+const int LARGE_PIPE_PIN     = 35;
+const int SMALL_PIPE_PIN     = 36;
+const int OUTDOOR_AMBIENT_PIN = 34;
 
 TemperatureSensor* App::addTemperatureSensor(
     const char* name,
@@ -68,34 +72,18 @@ void App::begin()
     _lvgl.printLvglMemory("begin");
 
     analogReadResolution(12);
+    TemperatureSensor* large = addTemperatureSensor("Large", LARGE_PIPE_PIN);
 
-    TemperatureSensor* large =
-        addTemperatureSensor("Large", LARGE_PIPE_PIN);
+    TemperatureSensor* small = addTemperatureSensor("Small", SMALL_PIPE_PIN);
 
-    TemperatureSensor* small =
-        addTemperatureSensor("Small", SMALL_PIPE_PIN);
+    TemperatureSensor* outdoor = addTemperatureSensor("Outdoor", OUTDOOR_AMBIENT_PIN);
 
-    TemperatureSensor* outdoor =
-        addTemperatureSensor("Outdoor", OUTDOOR_AMBIENT_PIN);
+    _status = new Status(large, small, outdoor);
+    _network = new Network();
+    _network->begin();
 
-    _status = new Status(
-        large,
-        small,
-        outdoor
-    );
-
-    _ui = new UIManager(*_status);
+    _ui = new UIManager(*_status, *_network);
     printMemoryStats();
-/*
-    M5.Display.setRotation(1);
-    M5.Display.fillScreen(BLACK);
-    M5.Display.setTextColor(WHITE);
-    M5.Display.setTextSize(2);
-
-    M5.Display.setCursor(20, 20);
-    M5.Display.println("AC Leak Detector");
-    delay(1000);
-*/
 }
 
 void App::runEverySecond()
@@ -103,7 +91,7 @@ void App::runEverySecond()
     _status->update();
     _ui->update();
 
-    _lvgl.printLvglMemory("loop");
+    //_lvgl.printLvglMemory("loop");
 }
 
 void App::run()
@@ -111,6 +99,7 @@ void App::run()
     M5.update();
 
     _lvgl.update();
+    _network->update();
 
     static uint32_t lastUpdate = 0;
     uint32_t now = millis();
@@ -176,48 +165,21 @@ void App::printMemoryStats()
     // --------------------------------------------------------
 
     Serial.println("Internal SRAM:");
-    Serial.printf(
-        "  Globals/Statics: used=%u  limit=%u  free=%u  (%.1f%%)\n",
-        staticSize,
-        STATIC_DRAM_LIMIT,
-        staticFree,
-        staticPercent
-    );
+    Serial.printf("  Globals/Statics: used=%u  limit=%u  free=%u  (%.1f%%)\n", staticSize, STATIC_DRAM_LIMIT, staticFree, staticPercent);
 
-    Serial.printf(
-        "                   data=%u  bss=%u\n",
-        dataSize,
-        bssSize
-    );
+    Serial.printf("                   data=%u  bss=%u\n", dataSize, bssSize);
 
-    Serial.printf(
-        "  Heap:            total=%u  free=%u  used=%u\n",
-        heapTotal,
-        heapFree,
-        heapUsed
-    );
+    Serial.printf("  Heap:            total=%u  free=%u  used=%u\n", heapTotal, heapFree, heapUsed);
 
-    Serial.printf(
-        "                   min_free=%u  largest=%u\n",
-        heapMinFree,
-        heapLargest
-    );
+    Serial.printf("                   min_free=%u  largest=%u\n", heapMinFree, heapLargest);
 
     Serial.println();
 
     Serial.println("External PSRAM:");
-    Serial.printf(
-        "  Heap:            total=%u  free=%u  used=%u\n",
-        psramTotal,
-        psramFree,
-        psramUsed
-    );
+    Serial.printf("  Heap:            total=%u  free=%u  used=%u\n", psramTotal, psramFree, psramUsed);
 
     Serial.printf(
-        "                   min_free=%u  largest=%u\n",
-        psramMinFree,
-        psramLargest
-    );
+        "                   min_free=%u  largest=%u\n", psramMinFree, psramLargest);
 
     Serial.println("============================");
 }

@@ -6,8 +6,8 @@
 #include "NetworkUI.h"
 #include "UIConfig.h"
 
-UIManager::UIManager(Status& status)
-    : _status(status)
+UIManager::UIManager(Status& status, Network& network)
+    : _status(status), _network(network)
 {
     lv_obj_t* screen = lv_screen_active();
 
@@ -185,7 +185,7 @@ void UIManager::showScreen(Screen screen)
             break;
 
         case Screen::Network:
-            _currentUI = new NetworkUI(_contentArea);
+            _currentUI = new NetworkUI(_contentArea, _network);
             break;
     }
 
