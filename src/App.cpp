@@ -2,6 +2,8 @@
 #include <M5Unified.h>
 #include <esp_heap_caps.h>
 #include <driver/gpio.h>
+#include <sys/time.h>
+#include <time.h>
 
 extern "C" {
     extern char _data_start;
@@ -65,8 +67,8 @@ void App::begin()
     M5.Power.setExtOutput(true);
     M5.Power.setChargeCurrent(100); // charge RTC battery
     
-    setenv("TZ", tz_posix_rule.c_str(), 1);
-    tzset(); // Force the system to update its local time offsets right now
+    _settings = new Settings();
+    _settings->begin();
 
     _lvgl.begin();
     _lvgl.printLvglMemory("begin");
@@ -79,16 +81,26 @@ void App::begin()
     TemperatureSensor* outdoor = addTemperatureSensor("Outdoor", OUTDOOR_AMBIENT_PIN);
 
     _status = new Status(large, small, outdoor);
+    _status->begin();
+
     _network = new Network();
     _network->begin();
 
-    _ui = new UIManager(*_status, *_network);
+    _clock = new Clock(*_settings, *_network);
+
+    _clock->begin();
+    _ui = new UIManager(*_status, *_network, *_settings, *_clock);
     printMemoryStats();
+}
+
+void App::runEveryQuarterSecond()
+{
+    _status->update();
 }
 
 void App::runEverySecond()
 {
-    _status->update();
+    _clock->update();
     _ui->update();
 
     //_lvgl.printLvglMemory("loop");
@@ -101,14 +113,23 @@ void App::run()
     _lvgl.update();
     _network->update();
 
-    static uint32_t lastUpdate = 0;
+    static uint32_t lastSecondUpdate = 0;
+    static uint32_t lastQuarterSecondUpdate = 0;
+
     uint32_t now = millis();
 
-    if (now - lastUpdate >= ONESECOND_INTERVAL_MS)
+    if (now - lastSecondUpdate >= ONESECOND_INTERVAL_MS)
     {
-        lastUpdate = now;
+        lastSecondUpdate = now;
         runEverySecond();
     }
+
+    if (now - lastQuarterSecondUpdate >= QUARTERSECOND_INTERVAL_MS)
+    {
+        lastQuarterSecondUpdate = now;
+        runEveryQuarterSecond();
+    }
+
 
     delay(5);
 }

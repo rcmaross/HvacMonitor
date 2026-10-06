@@ -4,11 +4,13 @@
 #include "Status.h"
 #include "ScreenUI.h"
 #include "Network.h"
+#include "Settings.h"
+#include "Clock.h"
 
 class UIManager
 {
 public:
-    UIManager(Status& status, Network& network);
+    UIManager(Status& status, Network& network, Settings& settings, Clock& clock);
     ~UIManager();
 
     void update();
@@ -23,7 +25,15 @@ private:
 
     Status& _status;
     Network& _network;
+    Settings& _settings;
+    Clock& _clock;
     
+    lv_obj_t* _header = nullptr;
+    lv_obj_t* _wifiBars[4] = {};
+    lv_obj_t* _timeLabel = nullptr;
+    lv_obj_t* _stateDot = nullptr;
+    lv_obj_t* _efficiencyLabel = nullptr;
+
     lv_obj_t* _contentArea = nullptr;
     lv_obj_t* _tabBar = nullptr;
 
@@ -34,6 +44,9 @@ private:
     ScreenUI* _currentUI = nullptr;
 
     Screen _currentScreen = Screen::Status;
+
+    void createHeader();
+    void updateHeader();
 
     void createNavigation();
     void showScreen(Screen screen);

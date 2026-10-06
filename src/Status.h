@@ -11,6 +11,7 @@ public:
         TemperatureSensor* outdoor
     );
 
+    void begin() {} //place holder for now.
     void update();
 
     float largePipeTemperature() const { return _largePipeTemperature; }
