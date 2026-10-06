@@ -4,7 +4,6 @@
 #include "StatusUI.h"
 #include "SettingsUI.h"
 #include "NetworkUI.h"
-#include "UIConfig.h"
 
 UIManager::UIManager(Status& status, Network& network)
     : _status(status), _network(network)
