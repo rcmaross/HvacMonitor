@@ -83,8 +83,12 @@ void App::begin()
     _status = new Status(large, small, outdoor);
     _status->begin();
 
-    _network = new Network();
+    _network = new Network(); 
     _network->begin();
+
+    _ota = new OTA();
+    _ota->begin();
+
 
     _web = new WebManager(*_status);
     _web->begin();
@@ -123,6 +127,7 @@ void App::run()
 
     _lvgl.update();
     _network->update();
+    _ota->update();
     _web->update();
 
     static uint32_t lastSecondUpdate = 0;
