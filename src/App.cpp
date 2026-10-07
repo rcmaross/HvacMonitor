@@ -86,6 +86,9 @@ void App::begin()
     _network = new Network();
     _network->begin();
 
+    _web = new WebManager(*_status);
+    _web->begin();
+
     _clock = new Clock(*_settings, *_network);
 
     _clock->begin();
@@ -120,6 +123,7 @@ void App::run()
 
     _lvgl.update();
     _network->update();
+    _web->update();
 
     static uint32_t lastSecondUpdate = 0;
     static uint32_t lastQuarterSecondUpdate = 0;

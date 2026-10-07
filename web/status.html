@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <title>HVAC Monitor</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: #101418;
+            color: #F2F4F5;
+            font-family: Arial, sans-serif;
+        }
+
+        .page {
+            max-width: 700px;
+            margin: 0 auto;
+        }
+
+        .content {
+            padding: 30px 20px;
+        }
+
+        .temperature-row {
+            display: grid;
+            grid-template-columns: 90px 1fr 65px;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 28px;
+        }
+
+        .name {
+            font-size: 16px;
+            font-weight: bold;
+        }
+
+        .large {
+            color: #4CAF50;
+        }
+
+        .small {
+            color: #F44336;
+        }
+
+        .outdoor {
+            color: #2196F3;
+        }
+
+        .track {
+            height: 4px;
+            background: #505860;
+            border-radius: 2px;
+            position: relative;
+        }
+
+        .marker {
+            position: absolute;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 1px solid #F2F4F5;
+            top: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        .marker.large {
+            background: #4CAF50;
+        }
+
+        .marker.small {
+            background: #F44336;
+        }
+
+        .marker.outdoor {
+            background: #2196F3;
+        }
+
+        .value {
+            text-align: right;
+            font-size: 18px;
+        }
+
+        .scale-row {
+            display: grid;
+            grid-template-columns: 90px 1fr 65px;
+            gap: 12px;
+            align-items: center;
+            margin-top: -10px;
+        }
+
+        .scale {
+            display: grid;
+            grid-template-columns: 35px 1fr 35px;
+            gap: 6px;
+            align-items: center;
+            color: #AEB7BF;
+        }
+
+        .scale-min {
+            text-align: right;
+        }
+
+        .scale-max {
+            text-align: left;
+        }
+
+        .spectrum {
+            height: 8px;
+            border-radius: 4px;
+            background: linear-gradient(
+                to right,
+                #1546A0,
+                #D62828
+            );
+        }
+
+        .status {
+            text-align: center;
+            margin-top: 32px;
+            font-size: 18px;
+        }
+
+        .performance {
+            text-align: center;
+            margin-top: 16px;
+            color: #AEB7BF;
+            font-size: 18px;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="page">
+
+    <div class="content">
+
+        <div class="temperature-row">
+            <div class="name large">LARGE</div>
+
+            <div class="track">
+                <div id="large-marker" class="marker large"></div>
+            </div>
+
+            <div id="large-value" class="value">--.-</div>
+        </div>
+
+        <div class="temperature-row">
+            <div class="name small">SMALL</div>
+
+            <div class="track">
+                <div id="small-marker" class="marker small"></div>
+            </div>
+
+            <div id="small-value" class="value">--.-</div>
+        </div>
+
+        <div class="temperature-row">
+            <div class="name outdoor">OUTDOOR</div>
+
+            <div class="track">
+                <div id="outdoor-marker" class="marker outdoor"></div>
+            </div>
+
+            <div id="outdoor-value" class="value">--.-</div>
+        </div>
+
+        <div class="scale-row">
+            <div></div>
+
+            <div class="scale">
+                <div id="scale-min" class="scale-min">--</div>
+
+                <div class="spectrum"></div>
+
+                <div id="scale-max" class="scale-max">--</div>
+            </div>
+
+            <div></div>
+        </div>
+
+        <div class="status">
+            System not running
+        </div>
+
+        <div class="performance">
+            Performance status unavailable
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+function setMarker(id, value, min, max)
+{
+    const marker = document.getElementById(id);
+
+    if (value === null) {
+        marker.style.display = "none";
+        return;
+    }
+
+    marker.style.display = "block";
+
+    let fraction = (value - min) / (max - min);
+
+    fraction = Math.max(0, Math.min(1, fraction));
+
+    marker.style.left = (fraction * 100) + "%";
+}
+
+function setTemperature(valueId, markerId, value, min, max)
+{
+    const element = document.getElementById(valueId);
+
+    if (value === null) {
+        element.textContent = "--.-";
+    } else {
+        element.textContent = value.toFixed(1);
+    }
+
+    setMarker(markerId, value, min, max);
+}
+
+async function updateStatus()
+{
+    try {
+        const response = await fetch("/api/status");
+        const data = await response.json();
+
+        document.getElementById("scale-min").textContent =
+            data.scaleMin.toFixed(0);
+
+        document.getElementById("scale-max").textContent =
+            data.scaleMax.toFixed(0);
+
+        setTemperature(
+            "large-value",
+            "large-marker",
+            data.large,
+            data.scaleMin,
+            data.scaleMax
+        );
+
+        setTemperature(
+            "small-value",
+            "small-marker",
+            data.small,
+            data.scaleMin,
+            data.scaleMax
+        );
+
+        setTemperature(
+            "outdoor-value",
+            "outdoor-marker",
+            data.outdoor,
+            data.scaleMin,
+            data.scaleMax
+        );
+
+    }
+    catch (error) {
+        console.log(error);
+    }
+}
+
+updateStatus();
+
+setInterval(
+    updateStatus,
+    1000
+);
+</script>
+
+</body>
+</html>

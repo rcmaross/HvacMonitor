@@ -6,6 +6,7 @@
 #include "Network.h"
 #include "Settings.h"
 #include "Clock.h"
+#include "WebManager.h"
 #include "UIManager.h"
 
 class App
@@ -35,7 +36,8 @@ private:
 
     LVGLManager _lvgl;
     UIManager* _ui = nullptr;
-
+    WebManager* _web = nullptr;
+    
     Status* _status = nullptr;
     Network* _network = nullptr;
     Settings* _settings = nullptr;
