@@ -77,15 +77,6 @@ float TemperatureSensor::readSampledCelsius()
 
     return calculateAverage();
 }
-float TemperatureSensor::readFahrenheit()
-{
-    float celsius = readCelsius();
-
-    if (isnan(celsius))
-        return NAN;
-
-    return celsius * 9.0f / 5.0f + 32.0f;
-}
 
 float TemperatureSensor::calculateAverage()
 {

@@ -14,7 +14,7 @@ public:
     void begin();
     void run();
     void printMemoryStats();
-    Settings& settings() { return *_settings; }
+    float convertTempFromCelsius(float c);
 
 private:
     static constexpr uint32_t ONESECOND_INTERVAL_MS = 1000;
@@ -25,6 +25,7 @@ private:
     size_t tempSensorCount = 0;
     void runEverySecond();
     void runEveryQuarterSecond();
+
     TemperatureSensor* addTemperatureSensor(
         const char* name,
         int pin
@@ -40,3 +41,5 @@ private:
     Settings* _settings = nullptr;
     Clock* _clock = nullptr;
 };
+
+extern App app;

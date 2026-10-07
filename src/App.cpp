@@ -98,6 +98,14 @@ void App::runEveryQuarterSecond()
     _status->update();
 }
 
+float App::convertTempFromCelsius(float c)
+{
+    if (_settings->useMetric())
+        return c;
+
+    return c * 9.0f / 5.0f + 32.0f;
+}
+
 void App::runEverySecond()
 {
     _clock->update();

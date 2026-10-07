@@ -14,11 +14,11 @@ Status::Status(
 void Status::update()
 {
     _largePipeTemperature =
-        _largePipeSensor->readFahrenheit();
+        _largePipeSensor->readCelsius();
 
     _smallPipeTemperature =
-        _smallPipeSensor->readFahrenheit();
+        _smallPipeSensor->readCelsius();
 
     _outdoorTemperature =
-        _outdoorSensor->readFahrenheit();
+        _outdoorSensor->readCelsius();
 }

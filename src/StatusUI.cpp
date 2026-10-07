@@ -1,5 +1,5 @@
 #include "StatusUI.h"
-
+#include "App.h"
 #include <math.h>
 #include <stdio.h>
 namespace
@@ -373,9 +373,9 @@ void StatusUI::updateTemperatureRow(TemperatureRow& row, float temperature)
 
 void StatusUI::update()
 {
-    float large = _status.largePipeTemperature();
-    float small = _status.smallPipeTemperature();
-    float outdoor = _status.outdoorTemperature();
+    float large = app.convertTempFromCelsius(_status.largePipeTemperature());
+    float small = app.convertTempFromCelsius(_status.smallPipeTemperature());
+    float outdoor = app.convertTempFromCelsius(_status.outdoorTemperature());
 
     //
     // Calculate the common scale before positioning markers.

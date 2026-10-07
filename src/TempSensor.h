@@ -8,8 +8,6 @@ public:
     TemperatureSensor(const char* name, int pin);
 
     float readCelsius();
-    float readFahrenheit();
-
     const char* name() const { return _name; }
     int pin() const { return _pin; }
 
