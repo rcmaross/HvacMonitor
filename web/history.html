@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        html, body {
+            margin: 0;
+            width: 100%;
+            min-height: 100%;
+            background: #101418;
+            color: #F2F4F5;
+            font-family: Arial, sans-serif;
+        }
+
+        .page {
+            padding: 28px;
+        }
+
+        h1 {
+            margin: 0 0 24px 0;
+            font-size: 24px;
+            font-weight: normal;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #181D22;
+        }
+
+        th, td {
+            padding: 12px 16px;
+            text-align: left;
+            border-bottom: 1px solid #303840;
+        }
+
+        th {
+            color: #AEB7BF;
+            font-weight: normal;
+        }
+
+        .size {
+            width: 140px;
+        }
+
+        .actions {
+            width: 200px;
+            text-align: right;
+        }
+
+        button {
+            margin-left: 8px;
+            padding: 7px 12px;
+            border: 1px solid #46515B;
+            border-radius: 4px;
+            background: #252D34;
+            color: #F2F4F5;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #303A43;
+        }
+
+        .delete {
+            border-color: #8B4545;
+        }
+
+        .empty {
+            padding: 20px;
+            color: #AEB7BF;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="page">
+
+    <h1>History Files</h1>
+
+    <div id="files">
+        Loading...
+    </div>
+
+</div>
+
+<script>
+function formatSize(bytes)
+{
+    if (bytes < 1024)
+        return bytes + " B";
+
+    if (bytes < 1024 * 1024)
+        return (bytes / 1024).toFixed(1) + " KB";
+
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+}
+
+async function loadFiles()
+{
+    const container = document.getElementById("files");
+
+    try {
+        const response = await fetch("/api/history/files");
+
+        if (!response.ok)
+            throw new Error("Unable to read history directory");
+
+        const files = await response.json();
+
+        if (files.length === 0) {
+            container.innerHTML =
+                '<div class="empty">No history files found.</div>';
+
+            return;
+        }
+
+        let html = `
+            <table>
+                <thead>
+                    <tr>
+                        <th>File</th>
+                        <th class="size">Size</th>
+                        <th class="actions"></th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
+        files.forEach(function(file) {
+            html += `
+                <tr>
+                    <td>${file.name}</td>
+                    <td>${formatSize(file.size)}</td>
+                    <td class="actions">
+                        <button onclick="downloadFile('${file.name}')">
+                            Download
+                        </button>
+
+                        <button class="delete"
+                                onclick="deleteFile('${file.name}')">
+                            Delete
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        html += `
+                </tbody>
+            </table>
+        `;
+
+        container.innerHTML = html;
+    }
+    catch (error) {
+        container.innerHTML =
+            '<div class="empty">' + error.message + '</div>';
+    }
+}
+
+function downloadFile(name)
+{
+    window.location =
+        "/api/history/download?name=" + encodeURIComponent(name);
+}
+
+async function deleteFile(name)
+{
+    if (!confirm("Delete " + name + "?"))
+        return;
+
+    const response = await fetch(
+        "/api/history/delete?name=" + encodeURIComponent(name),
+        {
+            method: "POST"
+        }
+    );
+
+    if (!response.ok) {
+        alert("Unable to delete " + name);
+        return;
+    }
+
+    loadFiles();
+}
+
+loadFiles();
+</script>
+
+</body>
+</html>

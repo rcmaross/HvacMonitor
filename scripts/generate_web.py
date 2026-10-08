@@ -14,7 +14,7 @@ def make_name(filename):
     return re.sub(r"[^A-Za-z0-9]", "_", filename).upper()
 
 
-for source_file in web_dir.iterdir():
+for source_file in web_dir.glob("*.html"):
     if not source_file.is_file():
         continue
 

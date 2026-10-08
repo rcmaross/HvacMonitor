@@ -83,6 +83,9 @@ void App::begin()
     _status = new Status(large, small, outdoor);
     _status->begin();
 
+    _history = new History(*_status);
+    _history->begin();
+
     _network = new Network(); 
     _network->begin();
 
@@ -90,7 +93,7 @@ void App::begin()
     _ota->begin();
 
 
-    _web = new WebManager(*_status);
+    _web = new WebManager(*_status, *_history);
     _web->begin();
 
     _clock = new Clock(*_settings, *_network);
@@ -130,23 +133,28 @@ void App::run()
     _ota->update();
     _web->update();
 
-    static uint32_t lastSecondUpdate = 0;
-    static uint32_t lastQuarterSecondUpdate = 0;
-
     uint32_t now = millis();
 
+    static uint32_t lastSecondUpdate = 0;
     if (now - lastSecondUpdate >= ONESECOND_INTERVAL_MS)
     {
         lastSecondUpdate = now;
         runEverySecond();
     }
 
+    static uint32_t lastQuarterSecondUpdate = 0;
     if (now - lastQuarterSecondUpdate >= QUARTERSECOND_INTERVAL_MS)
     {
         lastQuarterSecondUpdate = now;
         runEveryQuarterSecond();
     }
 
+    static uint32_t lastHistoryUpdate = 0;
+    if (now - lastHistoryUpdate >= HISTORY_INTERVAL_MS)
+    {
+        lastHistoryUpdate = now;
+        _history->write();
+    }
 
     delay(5);
 }
