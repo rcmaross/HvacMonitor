@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <M5Unified.h>
 #include <math.h>
 #include <stdlib.h>
 #include <string.h>
@@ -24,6 +25,27 @@ static char input[96];
 static size_t used = 0;
 static bool active = false;
 static uint32_t lastUpdate = 0;
+static float displayedF[3] = {NAN, NAN, NAN};
+
+static void drawScreen() {
+    auto& lcd = M5.Display;
+    lcd.fillScreen(TFT_BLACK);
+    lcd.setTextColor(TFT_WHITE, TFT_BLACK);
+    lcd.setTextSize(2);
+    lcd.setCursor(8, 10);
+    lcd.println("HVAC Simulator");
+    lcd.setTextSize(3);
+    const char* names[3] = {"Large", "Small", "Outside"};
+    for (int i = 0; i < 3; ++i) {
+        lcd.setCursor(8, 55 + i * 48);
+        if (isnan(displayedF[i])) lcd.printf("%s: --", names[i]);
+        else lcd.printf("%s: %.1f F", names[i], displayedF[i]);
+    }
+    lcd.setTextSize(2);
+    lcd.setCursor(8, 212);
+    lcd.print(active ? "Receiving serial" : "Waiting for serial");
+}
+
 
 static float voltageForF(float f) {
     const float k = (f - 32.0f) * (5.0f / 9.0f) + 273.15f;
@@ -75,18 +97,24 @@ static void process(char* line) {
     dacWrite(SMALL_PIN, v[1]);
     ledcWrite(PWM_CHANNEL, v[2]);
     active = true;
+    for (int i = 0; i < 3; ++i) displayedF[i] = f[i];
     lastUpdate = millis();
+    drawScreen();
     Serial.printf("OK %.2f %.2f %.2f DAC=%u,%u PWM=%u\n",
                   f[0], f[1], f[2], v[0], v[1], v[2]);
 }
 
 void setup() {
+    auto cfg = M5.config();
+    M5.begin(cfg);
+    M5.Display.setRotation(1);
     Serial.begin(BAUD);
     // Wi-Fi is not started. PWM is 8-bit at 5 kHz; external RC filter
     // smooths the third channel. Core2/M5Tough target uses ESP32 Arduino 2.x.
     ledcSetup(PWM_CHANNEL, 5000, 8);
     ledcAttachPin(OUTSIDE_PIN, PWM_CHANNEL);
     setZero();
+    drawScreen();
     Serial.println("READY M5Tough HVAC simulator: F,largeF,smallF,outsideF");
 }
 
@@ -107,6 +135,7 @@ void loop() {
     if (active && millis() - lastUpdate > STALE_MS) {
         active = false;
         setZero();
+        drawScreen();
         Serial.println("STALE outputs zero");
     }
 }
