@@ -22,6 +22,7 @@ void Status::update()
     _outdoorTemperature =
         _outdoorSensor->readCelsius();
 }
+
 void Status::sampleCompressor()
 {
     // Fixed Fahrenheit thresholds regardless of UI temperature units.

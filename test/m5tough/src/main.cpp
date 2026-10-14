@@ -46,6 +46,29 @@ static void drawScreen() {
     lcd.print(active ? "Receiving serial" : "Waiting for serial");
 }
 
+static float calibrateF(float requestedF, int channel) {
+    static constexpr float commanded[] = {
+        65.0f, 90.0f, 120.0f
+    };
+
+    static constexpr float measured[3][3] = {
+        {72.1f, 96.7f, 128.7f},  // Large
+        {72.8f, 98.6f, 130.6f},  // Small
+        {70.9f, 96.7f, 130.6f}   // Outdoor
+    };
+
+    const float* readings = measured[channel];
+
+    int segment = requestedF <= readings[1] ? 0 : 1;
+
+    float fraction =
+        (requestedF - readings[segment]) /
+        (readings[segment + 1] - readings[segment]);
+
+    return commanded[segment] +
+           fraction * (commanded[segment + 1] -
+                       commanded[segment]);
+}
 
 static float voltageForF(float f) {
     const float k = (f - 32.0f) * (5.0f / 9.0f) + 273.15f;
@@ -90,9 +113,11 @@ static void process(char* line) {
         }
     }
 
-    uint8_t v[3] = {to8bit(voltageForF(f[0])),
-                    to8bit(voltageForF(f[1])),
-                    to8bit(voltageForF(f[2]))};
+    uint8_t v[3] = {
+        to8bit(voltageForF(calibrateF(f[0], 0))),
+        to8bit(voltageForF(calibrateF(f[1], 1))),
+        to8bit(voltageForF(calibrateF(f[2], 2)))
+    };    
     dacWrite(LARGE_PIN, v[0]);
     dacWrite(SMALL_PIN, v[1]);
     ledcWrite(PWM_CHANNEL, v[2]);

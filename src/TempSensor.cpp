@@ -22,16 +22,19 @@ void TemperatureSensor::begin()
 float TemperatureSensor::readResistance()
 {
     int adc = analogRead(_pin);
+    //Serial.printf("%s:%d\n", _name, adc);
 
     if (adc <= 0 || adc >= 4095)
         return NAN;
 
+    float result = SERIES_RESISTOR * adc / (4095.0f - adc);
+    //Serial.printf("%s:%f(%d)\n", _name, result, adc);
     // Divider:
     // 3.3V -> 10K fixed -> ADC -> NTC -> GND
     //
     // Because we're using the ADC ratio directly, the 3.3V
     // supply voltage cancels out of the calculation.
-    return SERIES_RESISTOR * adc / (4095.0f - adc);
+    return result;
 }
 
 float TemperatureSensor::resistanceToCelsius(float resistance)
