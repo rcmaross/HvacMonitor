@@ -153,6 +153,7 @@ void App::run()
     if (now - lastHistoryUpdate >= HISTORY_INTERVAL_MS)
     {
         lastHistoryUpdate = now;
+        _status->sampleCompressor();
         _history->write();
     }
 
