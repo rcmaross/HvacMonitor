@@ -118,6 +118,12 @@ String StatusWeb::statusJson() const
     json += ",\"scaleMax\":";
     json += String(displayMax, 1);
 
+    json += ",\"systemStatus\":\"";
+    json += _status.compressorState() == CompressorState::UNKNOWN
+        ? "System status unavailable"
+        : (_status.compressorHeating() ? "System Heating" : "System not running");
+    json += "\"";
+
     json += ",\"rssi\":";
     json += String(WiFi.RSSI());
 
