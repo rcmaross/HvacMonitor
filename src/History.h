@@ -90,6 +90,18 @@ public:
 
 private:
     Status& _status;
+    static constexpr int SLOPE_SAMPLES = 3;  // Three 10-second intervals (~30 sec)
+
+    struct TemperatureSample
+    {
+        float large;
+        float small;
+        unsigned long timestampMs;
+    };
+
+    TemperatureSample _samples[SLOPE_SAMPLES] = {};
+    int _sampleIndex = 0;
+    int _sampleCount = 0;
 
     bool _available = false;
 
