@@ -391,6 +391,9 @@ void StatusUI::update()
     // Placeholder until Status provides HVAC state.
     //
 
-    lv_label_set_text(_systemStatus, "System not running");
+    lv_label_set_text(_systemStatus,
+        _status.compressorState() == CompressorState::UNKNOWN
+            ? "System status unavailable"
+            : (_status.compressorHeating() ? "System Heating" : "System not running"));
     lv_label_set_text(_performanceStatus, "Performance status unavailable");
 }

@@ -51,7 +51,7 @@ void History::write()
         return;
     }
 
-    static constexpr int CSV_VERSION = 2;
+    static constexpr int CSV_VERSION = 3;
 
     char filename[64];
 
@@ -84,7 +84,9 @@ void History::write()
             "large_outside_delta,"
             "small_outside_delta,"
             "large_slope,"
-            "small_slope"
+            "small_slope,"
+            "large_small_slope,"
+            "compressor_state"
         );
     }
 
@@ -92,34 +94,11 @@ void History::write()
     float small = app.convertTempFromCelsius(_status.smallPipeTemperature());
     float outside = app.convertTempFromCelsius(_status.outdoorTemperature());
     
-    // Calculate signed temperature slopes over approximately 30 seconds.
-    // Units are degrees per minute, matching the configured temperature unit.
-
-    unsigned long nowMs = millis();
-
-    float largeSlope = NAN;
-    float smallSlope = NAN;
-
-    if (_sampleCount >= SLOPE_SAMPLES)
-    {
-        const TemperatureSample& old = _samples[_sampleIndex];
-
-        float elapsedMinutes =
-            (nowMs - old.timestampMs) / 60000.0f;
-
-        if (elapsedMinutes > 0.0f)
-        {
-            largeSlope = (large - old.large) / elapsedMinutes;
-            smallSlope = (small - old.small) / elapsedMinutes;
-        }
-    }
-    // Save current sample in the circular buffer.
-    _samples[_sampleIndex] = {large, small, nowMs};
-
-    _sampleIndex = (_sampleIndex + 1) % SLOPE_SAMPLES;
-
-    if (_sampleCount < SLOPE_SAMPLES)
-        _sampleCount++;
+    // Status computes slopes in F/min; CSV follows display temperature units.
+    const float slopeFactor = app.convertTempFromCelsius(1.0f) -
+                              app.convertTempFromCelsius(0.0f);
+    const float largeSlope = _status.largeSlopeFPerMin() * slopeFactor / 1.8f;
+    const float smallSlope = _status.smallSlopeFPerMin() * slopeFactor / 1.8f;
 
     time_t now = time(nullptr);
 
@@ -136,7 +115,7 @@ void History::write()
     );
 
     file.printf(
-        "%s,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.4f,%.4f\n",
+        "%s,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.4f,%.4f,%.4f,%s\n",
         timestamp,
         large,
         small,
@@ -145,7 +124,9 @@ void History::write()
         fabsf(large - outside),
         fabsf(small - outside),
         largeSlope,
-        smallSlope
+        smallSlope,
+        largeSlope - smallSlope,
+        Status::compressorStateName(_status.compressorState())
     );
 
     file.flush();
