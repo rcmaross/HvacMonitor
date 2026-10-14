@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 """Replay HVAC CSV or interactively set simulator temperatures over USB serial."""
 import argparse
