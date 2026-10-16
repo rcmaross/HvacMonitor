@@ -2,6 +2,7 @@
 #include "generated/index_html.h"
 #include "generated/status_html.h"
 #include "generated/history_html.h"
+#include "generated/analysis_html.h"
 
 static bool validHistoryFilename(const String& name)
 {
@@ -20,9 +21,10 @@ static bool validHistoryFilename(const String& name)
     return true;
 }
 
-WebManager::WebManager(Status& status, History& history)
+WebManager::WebManager(Status& status, History& history, Analysis& analysis)
     : _statusWeb(status),
-      _history(history)
+      _history(history),
+      _analysis(analysis)
 {
 }
 
@@ -43,6 +45,19 @@ void WebManager::begin()
         _server.send(200, "application/json", _statusWeb.statusJson());
     });
 
+    _server.on("/analysis", HTTP_GET, [this]() { _server.send(200, "text/html", ANALYSIS_HTML); });
+    _server.on("/api/analysis", HTTP_GET, [this]() { _server.send(200, "application/json", _analysis.json()); });
+    _server.on("/api/analysis/config", HTTP_POST, [this]() {
+        if (_server.hasArg("auto")) _analysis.setAuto(_server.arg("auto") == "true");
+        if (_server.hasArg("ignoreOff")) _analysis.setIgnoreOff(_server.arg("ignoreOff").toInt());
+        if (_server.hasArg("low") && _server.hasArg("high")) {
+            if (!_analysis.setThresholds(_server.arg("low").toInt(), _server.arg("high").toInt())) {
+                _server.send(400, "text/plain", "Invalid thresholds or automatic mode enabled"); return;
+            }
+        }
+        _analysis.recalculate();
+        _server.send(200, "application/json", _analysis.json());
+    });
     _server.on("/history", HTTP_GET, [this]()
     {
         _server.send(200, "text/html", HISTORY_HTML);
