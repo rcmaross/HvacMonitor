@@ -80,7 +80,7 @@ public:
 
     void begin();
     void write(const Analysis& analysis);
-    bool selectAnalysisFile(uint32_t now);
+    bool selectAnalysisFiles(uint32_t now);
     bool readAnalysisBatch(uint32_t& cursor, size_t limit, const std::function<void(const String&)>& callback, bool& done);
     bool csvMetric() const;
 
@@ -97,7 +97,12 @@ private:
     Status& _status;
 
     bool _available = false;
-    String _analysisFile;
+    static constexpr size_t MAX_ANALYSIS_FILES = 16;
+    String _analysisFiles[MAX_ANALYSIS_FILES];
+    time_t _analysisModified[MAX_ANALYSIS_FILES] = {};
+    size_t _analysisFileCount = 0;
+    size_t _analysisFileIndex = 0;
+    uint32_t _analysisFileEnd = 0;
 
     static constexpr const char* DIRECTORY = "/HvacMonitor";
 
