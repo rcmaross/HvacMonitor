@@ -23,8 +23,8 @@ public:
                _compressorState == CompressorState::DOWNSTAGING;
     }
     static const char* compressorStateName(CompressorState state);
-    float largeSlopeFPerMin() const { return _largeSlopeFPerMin; }
-    float smallSlopeFPerMin() const { return _smallSlopeFPerMin; }
+    float largeSlopeCPerMin() const { return _largeSlopeCPerMin; }
+    float smallSlopeCPerMin() const { return _smallSlopeCPerMin; }
 
     float largePipeTemperature() const { return _largePipeTemperature; }
     float smallPipeTemperature() const { return _smallPipeTemperature; }
@@ -33,15 +33,15 @@ public:
 private:
     static constexpr int SLOPE_SAMPLES = 3;
     struct TemperatureSample {
-        float largeF;
-        float smallF;
+        float largeC;
+        float smallC;
         unsigned long timestampMs;
     };
     TemperatureSample _samples[SLOPE_SAMPLES] = {};
     int _sampleIndex = 0;
     int _sampleCount = 0;
-    float _largeSlopeFPerMin = NAN;
-    float _smallSlopeFPerMin = NAN;
+    float _largeSlopeCPerMin = NAN;
+    float _smallSlopeCPerMin = NAN;
     CompressorState _compressorState = CompressorState::UNKNOWN;
 
     TemperatureSensor* _largePipeSensor;
