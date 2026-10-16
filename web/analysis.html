@@ -1,0 +1,49 @@
+<!doctype html>
+<html><head><meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body{background:#101418;color:#f2f4f5;font:16px Arial;margin:0;padding:20px}
+main{max-width:620px;margin:auto}.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.card{background:#20282d;border-radius:8px;padding:18px;text-align:center}
+strong{display:block;font-size:30px;margin-top:8px}.levels{display:flex;justify-content:space-around;margin:24px 0}
+.levels strong{font-size:22px}section{margin-top:25px}label{display:block;margin:18px 0}
+input[type=range]{width:100%}button{background:#354650;color:white;border:1px solid #667680;border-radius:5px;padding:10px 18px}
+button:disabled{opacity:.4}#loading{color:#e2b44f}
+</style></head><body><main>
+<h2>Analysis <small>Last 24h</small></h2>
+<div id="loading"></div>
+<div class="stats"><div class="card">OFF<strong id="off">--</strong></div><div class="card">ON<strong id="on">--</strong></div></div>
+<div class="levels"><div>LOW<strong id="lp">--</strong></div><div>MEDIUM<strong id="mp">--</strong></div><div>HIGH<strong id="hp">--</strong></div></div>
+<section><label><input id="auto" type="checkbox"> Auto Calibrate</label>
+<label>Low / Medium: <span id="lv"></span>°C<input id="low" type="range" min="0" max="49" step="1"></label>
+<label>Medium / High: <span id="hv"></span>°C<input id="high" type="range" min="1" max="50" step="1"></label>
+<label>Ignore OFF periods ≤ <span id="iv"></span> seconds
+<button id="minus" type="button">−</button><button id="plus" type="button">+</button></label>
+<button id="apply" type="button">Recalculate</button></section></main>
+<script>
+const el=id=>document.getElementById(id);
+let initialized=false,dirty=false;
+function pct(n){return Number(n).toFixed(1)+'%'}
+async function refresh(){
+ try{
+  const r=await fetch('/api/analysis');const d=await r.json();
+  el('loading').textContent=d.loading?'Loading History...':'';
+  for(const [id,key] of [['off','off'],['on','on'],['lp','lowPercent'],['mp','mediumPercent'],['hp','highPercent']])el(id).textContent=pct(d[key]);
+  if(!initialized||!dirty){
+   el('auto').checked=d.auto;el('low').value=d.low;el('high').value=d.high;el('iv').textContent=d.ignoreOff;initialized=true;
+  }
+  el('low').disabled=el('high').disabled=el('auto').checked;
+  el('lv').textContent=el('low').value;el('hv').textContent=el('high').value;
+  el('apply').disabled=d.loading;
+ }catch(e){el('loading').textContent='Unable to load analysis';}
+}
+for(const id of ['auto','low','high'])el(id).addEventListener('input',()=>{dirty=true;el('low').disabled=el('high').disabled=el('auto').checked;el('lv').textContent=el('low').value;el('hv').textContent=el('high').value});
+el('minus').onclick=()=>{el('iv').textContent=Math.max(0,+el('iv').textContent-10);dirty=true};
+el('plus').onclick=()=>{el('iv').textContent=Math.min(120,+el('iv').textContent+10);dirty=true};
+el('apply').onclick=async()=>{
+ const p=new URLSearchParams({auto:String(el('auto').checked),ignoreOff:el('iv').textContent});
+ if(!el('auto').checked){p.set('low',el('low').value);p.set('high',el('high').value)}
+ const r=await fetch('/api/analysis/config',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:p});
+ if(!r.ok){alert(await r.text());return}dirty=false;refresh();
+};
+refresh();setInterval(refresh,10000);
+</script></body></html>
