@@ -72,7 +72,13 @@ void Analysis::finish(uint32_t end, const char* reason) {
     uint32_t duration = end - _intervalStart;
     float avg = _sumDelta / _sampleCount;
     append(_intervalStart, duration, _previousType, avg);
-    _completed = {true, _intervalStart, duration, _sampleCount, avg, _previousType, reason};
+    _completed.valid = true;
+    _completed.start = _intervalStart;
+    _completed.seconds = duration;
+    _completed.sampleCount = _sampleCount;
+    _completed.avgDeltaC = avg;
+    _completed.type = _previousType;
+    _completed.reason = reason;
     _sumDelta = 0;
     _sampleCount = 0;
 }
