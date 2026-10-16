@@ -233,3 +233,27 @@ History::ActiveFileStream History::openFileReadStream(
 {
     return ActiveFileStream(makePath(filename));
 }
+bool History::csvMetric() const {
+    // The existing CSV has no per-row units metadata.
+    return app.settingsMetric();
+}
+bool History::readAnalysisBatch(uint32_t& cursor, size_t limit,
+                                const std::function<void(const String&)>& callback, bool& done) {
+    done = true;
+    if (!_available) return false;
+    ScopedMount mount;
+    if (!mount.isReady()) return false;
+    File file = SD.open(makePath("history_v3.csv"), FILE_READ);
+    if (!file) return true; // Virgin SD card.
+    if (!file.seek(cursor)) return false;
+    size_t count = 0;
+    while (file.available() && count < limit) {
+        String line = file.readStringUntil('\n');
+        callback(line);
+        ++count;
+    }
+    cursor = file.position();
+    done = !file.available();
+    file.close();
+    return true;
+}

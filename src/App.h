@@ -8,6 +8,7 @@
 #include "Clock.h"
 #include "OTA.h"
 #include "History.h"
+#include "Analysis.h"
 #include "WebManager.h"
 #include "UIManager.h"
 
@@ -18,6 +19,7 @@ public:
     void run();
     void printMemoryStats();
     float convertTempFromCelsius(float c);
+    bool settingsMetric() const { return _settings && _settings->useMetric(); }
 
 private:
     static constexpr uint32_t ONESECOND_INTERVAL_MS = 1000;
@@ -43,6 +45,7 @@ private:
     WebManager* _web = nullptr;
     
     History* _history = nullptr;
+    Analysis* _analysis = nullptr;
     Status* _status = nullptr;
     Network* _network = nullptr;
     Settings* _settings = nullptr;

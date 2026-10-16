@@ -4,7 +4,6 @@ import argparse
 import re
 import subprocess
 import sys
-import time
 from pathlib import Path
 
 
@@ -90,6 +89,30 @@ def discover_hosts():
 
     return sorted(hosts)
 
+def choose_hosts(hosts):
+    print("\nFound HVAC Monitor devices:")
+    for index, host in enumerate(hosts, start=1):
+        print(f"  {index}. {host}")
+    print("  a. All devices")
+    print("  q. Cancel")
+
+    while True:
+        try:
+            choice = input("\nSelect device number or a for all: ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            print("\nCancelled.")
+            sys.exit(0)
+
+        if choice == "a":
+            return hosts
+        if choice == "q":
+            print("Cancelled.")
+            sys.exit(0)
+        if choice.isdecimal() and 1 <= int(choice) <= len(hosts):
+            return [hosts[int(choice) - 1]]
+        print("Invalid selection. Enter a device number, a, or q.")
+
+
 def upload(host):
     print()
     print("=" * 60)
@@ -139,8 +162,6 @@ def main():
 
     args = parser.parse_args()
 
-    build()
-
     if args.hostname:
         hosts = [args.hostname]
 
@@ -152,11 +173,9 @@ def main():
             print("No HVAC Monitor OTA devices found.")
             sys.exit(1)
 
-        print()
-        print("Found HVAC Monitor devices:")
+        hosts = choose_hosts(hosts)
 
-        for host in hosts:
-            print(f"  {host}")
+    build()
 
     failures = []
 

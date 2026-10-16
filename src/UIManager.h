@@ -6,11 +6,12 @@
 #include "Network.h"
 #include "Settings.h"
 #include "Clock.h"
+#include "Analysis.h"
 
 class UIManager
 {
 public:
-    UIManager(Status& status, Network& network, Settings& settings, Clock& clock);
+    UIManager(Status& status, Network& network, Settings& settings, Clock& clock, Analysis& analysis);
     ~UIManager();
 
     void update();
@@ -19,6 +20,7 @@ private:
     enum class Screen
     {
         Status,
+        Analysis,
         Settings,
         Network
     };
@@ -27,6 +29,7 @@ private:
     Network& _network;
     Settings& _settings;
     Clock& _clock;
+    Analysis& _analysis;
     
     lv_obj_t* _header = nullptr;
     lv_obj_t* _wifiBars[4] = {};
@@ -38,6 +41,7 @@ private:
     lv_obj_t* _tabBar = nullptr;
 
     lv_obj_t* _statusButton = nullptr;
+    lv_obj_t* _analysisButton = nullptr;
     lv_obj_t* _settingsButton = nullptr;
     lv_obj_t* _networkButton = nullptr;
 
@@ -53,6 +57,7 @@ private:
     void clearCurrentScreen();
 
     static void statusButtonClicked(lv_event_t* event);
+    static void analysisButtonClicked(lv_event_t* event);
     static void settingsButtonClicked(lv_event_t* event);
     static void networkButtonClicked(lv_event_t* event);
 };
