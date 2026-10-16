@@ -112,3 +112,90 @@ void Analysis::calibrate() {
     int high = roundf((centers[1] + centers[2]) / 2);
     if (low >= 0 && high <= 100 && high - low >= 2) { _low = low; _high = high; }
 }
+
+void Analysis::recalculate() {
+    if (_loading || !_events) return;
+    uint32_t now = (uint32_t)time(nullptr);
+    if (now < 1700000000) return;
+    uint32_t windowStart = now > 86400 ? now - 86400 : 0;
+    if (_auto) calibrate();
+    double off = 0, low = 0, medium = 0, high = 0;
+    for (size_t i = 0; i < _count; ++i) {
+        const auto& e = at(i);
+        uint32_t start = e.start > windowStart ? e.start : windowStart;
+        uint32_t end = e.start + e.seconds;
+        if (end > now) end = now;
+        if (end <= start) continue;
+        bool heating = e.type == AnalysisEventType::HEATING;
+        float peak = e.peakDeltaC;
+        if (!heating && e.seconds <= (uint32_t)_ignoreOff && i > 0 && i + 1 < _count &&
+            at(i - 1).type == AnalysisEventType::HEATING &&
+            at(i + 1).type == AnalysisEventType::HEATING) {
+            heating = true;
+            peak = fmaxf(at(i - 1).peakDeltaC, at(i + 1).peakDeltaC);
+        }
+        if (!heating) off += end - start;
+        else if (peak <= _low) low += end - start;
+        else if (peak <= _high) medium += end - start;
+        else high += end - start;
+    }
+    double on = low + medium + high;
+    double total = off + on;
+    _off = total ? 100 * off / total : 0;
+    _on = total ? 100 * on / total : 0;
+    _lowPct = on ? 100 * low / on : 0;
+    _mediumPct = on ? 100 * medium / on : 0;
+    _highPct = on ? 100 * high / on : 0;
+}
+String Analysis::json() const {
+    String s = "{";
+    s += "\"loading\":" + String(_loading ? "true" : "false");
+    s += ",\"auto\":" + String(_auto ? "true" : "false");
+    s += ",\"low\":" + String(_low) + ",\"high\":" + String(_high);
+    s += ",\"ignoreOff\":" + String(_ignoreOff);
+    s += ",\"off\":" + String(_off, 1) + ",\"on\":" + String(_on, 1);
+    s += ",\"lowPercent\":" + String(_lowPct, 1);
+    s += ",\"mediumPercent\":" + String(_mediumPct, 1);
+    s += ",\"highPercent\":" + String(_highPct, 1) + "}";
+    return s;
+}
+void Analysis::update() {
+    if (_loading) {
+        bool done = false;
+        bool ok = _history.readAnalysisBatch(_cursor, 150, [this](const String& line) {
+            int comma = line.indexOf(',');
+            if (comma < 0) return;
+            String stamp = line.substring(0, comma);
+            struct tm tmv = {};
+            if (!strptime(stamp.c_str(), "%Y-%m-%d %H:%M:%S", &tmv)) return;
+            time_t t = mktime(&tmv);
+            if (t <= 0 || (uint32_t)t > _cutoff || (uint32_t)t + 86400 < _cutoff) return;
+            int p = comma + 1, q = line.indexOf(',', p);
+            if (q < 0) return;
+            float large = line.substring(p, q).toFloat();
+            p = q + 1; q = line.indexOf(',', p);
+            if (q < 0) return;
+            float small = line.substring(p, q).toFloat();
+            String name = line.substring(line.lastIndexOf(',') + 1);
+            name.trim();
+            CompressorState state = CompressorState::UNKNOWN;
+            if (name == "OFF") state = CompressorState::OFF;
+            else if (name == "HEATING") state = CompressorState::HEATING;
+            else if (name == "PLATEAU") state = CompressorState::PLATEAU;
+            else if (name == "DOWNSTAGING") state = CompressorState::DOWNSTAGING;
+            float delta = fabsf(large - small);
+            if (!_history.csvMetric()) delta *= 5.0f / 9.0f;
+            feed((uint32_t)t, state, delta);
+        }, done);
+        if (!ok || done) {
+            _loading = false;
+            _hasPrevious = false;
+            recalculate();
+        }
+        return;
+    }
+    if (millis() - _lastRecalc >= 60000) {
+        _lastRecalc = millis();
+        recalculate();
+    }
+}
