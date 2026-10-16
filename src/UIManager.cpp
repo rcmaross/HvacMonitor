@@ -2,11 +2,12 @@
 #include "UIConfig.h"
 
 #include "StatusUI.h"
+#include "AnalysisUI.h"
 #include "SettingsUI.h"
 #include "NetworkUI.h"
 
-UIManager::UIManager(Status& status, Network& network, Settings& settings, Clock& clock)
-    : _status(status), _network(network), _settings(settings), _clock(clock)
+UIManager::UIManager(Status& status, Network& network, Settings& settings, Clock& clock, Analysis& analysis)
+    : _status(status), _network(network), _settings(settings), _clock(clock), _analysis(analysis)
 {
     lv_obj_t* screen = lv_screen_active();
 
@@ -263,18 +264,22 @@ void UIManager::createNavigation()
     );
 
     _statusButton = lv_button_create(_tabBar);
+    _analysisButton = lv_button_create(_tabBar);
     _settingsButton = lv_button_create(_tabBar);
     _networkButton = lv_button_create(_tabBar);
 
     lv_obj_set_flex_grow(_statusButton, 1);
+    lv_obj_set_flex_grow(_analysisButton, 1);
     lv_obj_set_flex_grow(_settingsButton, 1);
     lv_obj_set_flex_grow(_networkButton, 1);
 
     lv_obj_set_height(_statusButton, LV_PCT(100));
+    lv_obj_set_height(_analysisButton, LV_PCT(100));
     lv_obj_set_height(_settingsButton, LV_PCT(100));
     lv_obj_set_height(_networkButton, LV_PCT(100));
 
     lv_obj_set_style_radius(_statusButton, 0, 0);
+    lv_obj_set_style_radius(_analysisButton, 0, 0);
     lv_obj_set_style_radius(_settingsButton, 0, 0);
     lv_obj_set_style_radius(_networkButton, 0, 0);
 
@@ -282,6 +287,10 @@ void UIManager::createNavigation()
 
     label = lv_label_create(_statusButton);
     lv_label_set_text(label, "STATUS");
+    lv_obj_center(label);
+
+    label = lv_label_create(_analysisButton);
+    lv_label_set_text(label, "ANALYSIS");
     lv_obj_center(label);
 
     label = lv_label_create(_settingsButton);
@@ -298,6 +307,8 @@ void UIManager::createNavigation()
         LV_EVENT_CLICKED,
         this
     );
+
+    lv_obj_add_event_cb(_analysisButton, analysisButtonClicked, LV_EVENT_CLICKED, this);
 
     lv_obj_add_event_cb(
         _settingsButton,
@@ -335,6 +346,10 @@ void UIManager::showScreen(Screen screen)
     {
         case Screen::Status:
             _currentUI = new StatusUI(_contentArea, _status);
+            break;
+
+        case Screen::Analysis:
+            _currentUI = new AnalysisUI(_contentArea, _analysis);
             break;
 
         case Screen::Settings:
@@ -388,4 +403,8 @@ void UIManager::networkButtonClicked(lv_event_t* event)
         );
 
     ui->showScreen(Screen::Network);
+}
+void UIManager::analysisButtonClicked(lv_event_t* event) {
+    auto* ui = static_cast<UIManager*>(lv_event_get_user_data(event));
+    ui->showScreen(Screen::Analysis);
 }
