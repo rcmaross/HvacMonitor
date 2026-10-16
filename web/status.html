@@ -184,8 +184,8 @@
             <div></div>
         </div>
 
-        <div class="status">
-            System not running
+        <div id="system-status" class="status">
+            System status unavailable
         </div>
 
         <div class="performance">
@@ -234,6 +234,9 @@ async function updateStatus()
         const response = await fetch("/api/status");
         const data = await response.json();
 
+        document.getElementById("system-status").textContent =
+            data.systemStatus;
+            
         document.getElementById("scale-min").textContent =
             data.scaleMin.toFixed(0);
 

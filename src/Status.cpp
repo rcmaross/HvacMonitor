@@ -25,36 +25,38 @@ void Status::update()
 
 void Status::sampleCompressor()
 {
-    // Fixed Fahrenheit thresholds regardless of UI temperature units.
-    const float largeF = _largePipeTemperature * 1.8f + 32.0f;
-    const float smallF = _smallPipeTemperature * 1.8f + 32.0f;
+    const float largeC = _largePipeTemperature;
+    const float smallC = _smallPipeTemperature;
     const unsigned long nowMs = millis();
 
-    _largeSlopeFPerMin = NAN;
-    _smallSlopeFPerMin = NAN;
+    _largeSlopeCPerMin = NAN;
+    _smallSlopeCPerMin = NAN;
     _compressorState = CompressorState::UNKNOWN;
 
-    if (isfinite(largeF) && isfinite(smallF) && _sampleCount >= SLOPE_SAMPLES)
+    if (isfinite(largeC) && isfinite(smallC) && _sampleCount >= SLOPE_SAMPLES)
     {
         const TemperatureSample& old = _samples[_sampleIndex];
         const float elapsedMinutes = (nowMs - old.timestampMs) / 60000.0f;
-        if (elapsedMinutes > 0.0f && isfinite(old.largeF) && isfinite(old.smallF))
+        if (elapsedMinutes > 0.0f && isfinite(old.largeC) && isfinite(old.smallC))
         {
-            _largeSlopeFPerMin = (largeF - old.largeF) / elapsedMinutes;
-            _smallSlopeFPerMin = (smallF - old.smallF) / elapsedMinutes;
-            const float deltaF = largeF - smallF;
-            const float deltaSlope = _largeSlopeFPerMin - _smallSlopeFPerMin;
+            _largeSlopeCPerMin = (largeC - old.largeC) / elapsedMinutes;
+            _smallSlopeCPerMin = (smallC - old.smallC) / elapsedMinutes;
+            const float deltaC = largeC - smallC;
+            const float deltaSlope = _largeSlopeCPerMin - _smallSlopeCPerMin;
 
+            constexpr float START_SLOPE_DEADBAND = 0.3f;
             constexpr float SLOPE_DEADBAND = 0.2f;
-            constexpr float PLATEAU_DELTA_F = 20.0f;
-            constexpr float DOWNSTAGE_DELTA_SLOPE = 5.0f;
+            constexpr float INIT_DELTA_C = 3.0f;
+            constexpr float PLATEAU_DELTA_C = 11.0f;
+            constexpr float DOWNSTAGE_DELTA_SLOPE = 3.0f;
 
-            if (_largeSlopeFPerMin > SLOPE_DEADBAND)
+            if (_largeSlopeCPerMin > START_SLOPE_DEADBAND ||
+                (_largeSlopeCPerMin > SLOPE_DEADBAND && deltaC >= INIT_DELTA_C))
                 _compressorState = CompressorState::HEATING;
-            else if (fabsf(_largeSlopeFPerMin) <= SLOPE_DEADBAND &&
-                     deltaF > PLATEAU_DELTA_F)
+            else if (fabsf(_largeSlopeCPerMin) <= SLOPE_DEADBAND &&
+                     deltaC > PLATEAU_DELTA_C)
                 _compressorState = CompressorState::PLATEAU;
-            else if (_largeSlopeFPerMin < -SLOPE_DEADBAND &&
+            else if (_largeSlopeCPerMin < -SLOPE_DEADBAND &&
                      deltaSlope > DOWNSTAGE_DELTA_SLOPE)
                 _compressorState = CompressorState::DOWNSTAGING;
             else
@@ -62,7 +64,7 @@ void Status::sampleCompressor()
         }
     }
 
-    _samples[_sampleIndex] = {largeF, smallF, nowMs};
+    _samples[_sampleIndex] = {largeC, smallC, nowMs};
     _sampleIndex = (_sampleIndex + 1) % SLOPE_SAMPLES;
     if (_sampleCount < SLOPE_SAMPLES)
         ++_sampleCount;

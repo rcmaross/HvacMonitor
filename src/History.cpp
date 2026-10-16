@@ -94,11 +94,11 @@ void History::write()
     float small = app.convertTempFromCelsius(_status.smallPipeTemperature());
     float outside = app.convertTempFromCelsius(_status.outdoorTemperature());
     
-    // Status computes slopes in F/min; CSV follows display temperature units.
+    // Status computes slopes in C/min; convert only for CSV output.
     const float slopeFactor = app.convertTempFromCelsius(1.0f) -
                               app.convertTempFromCelsius(0.0f);
-    const float largeSlope = _status.largeSlopeFPerMin() * slopeFactor / 1.8f;
-    const float smallSlope = _status.smallSlopeFPerMin() * slopeFactor / 1.8f;
+    const float largeSlope = _status.largeSlopeCPerMin() * slopeFactor;
+    const float smallSlope = _status.smallSlopeCPerMin() * slopeFactor;
 
     time_t now = time(nullptr);
 
