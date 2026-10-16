@@ -1,5 +1,5 @@
 <!doctype html>
-<html><head><meta name="viewport" content="width=device-width, initial-scale=1">
+<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 body{background:#101418;color:#f2f4f5;font:16px Arial;margin:0;padding:20px}
 main{max-width:620px;margin:auto}.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
@@ -14,8 +14,8 @@ button:disabled{opacity:.4}#loading{color:#e2b44f}
 <div class="stats"><div class="card">OFF<strong id="off">--</strong></div><div class="card">ON<strong id="on">--</strong></div></div>
 <div class="levels"><div>LOW<strong id="lp">--</strong></div><div>MEDIUM<strong id="mp">--</strong></div><div>HIGH<strong id="hp">--</strong></div></div>
 <section><label><input id="auto" type="checkbox"> Auto Calibrate</label>
-<label>Low / Medium: <span id="lv"></span>°C<input id="low" type="range" min="0" max="49" step="1"></label>
-<label>Medium / High: <span id="hv"></span>°C<input id="high" type="range" min="1" max="50" step="1"></label>
+<label>Low / Medium: <span id="lv"></span><input id="low" type="range" min="0" max="99" step="1"></label>
+<label>Medium / High: <span id="hv"></span><input id="high" type="range" min="1" max="100" step="1"></label>
 <label>Ignore OFF periods ≤ <span id="iv"></span> seconds
 <button id="minus" type="button">−</button><button id="plus" type="button">+</button></label>
 <button id="apply" type="button">Recalculate</button></section></main>
