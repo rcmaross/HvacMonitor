@@ -157,8 +157,12 @@ void App::run()
     {
         lastHistoryUpdate = now;
         _status->sampleCompressor();
-        _analysis->sample(*_status);
-        _history->write(*_analysis);
+        // Finish choosing and reconstructing the existing history file before
+        // creating history_v4.csv. Otherwise the new file wins newest-file selection.
+        if (!_analysis->loading()) {
+            _analysis->sample(*_status);
+            _history->write(*_analysis);
+        }
     }
 
     delay(5);
