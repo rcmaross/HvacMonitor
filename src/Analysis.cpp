@@ -120,12 +120,15 @@ void Analysis::feed(uint32_t timestamp, CompressorState state, float delta) {
 }
 
 void Analysis::sample(const Status& status) {
-    if (_loading || !_events) return;
+    if (!_events) return;
     time_t now = time(nullptr);
     if (now < 1700000000) return;
     float large = status.largePipeTemperature();
     float small = status.smallPipeTemperature();
     if (!isfinite(large) || !isfinite(small)) return;
+    if (_loading) return; // History is still being replayed; CSV retains samples.
+    if ((uint32_t)now <= _cutoff || (uint32_t)now <= _lastLiveTimestamp) return;
+    _lastLiveTimestamp = (uint32_t)now;
     feed((uint32_t)now, status.compressorState(), fabsf(large - small));
 }
 
@@ -208,6 +211,12 @@ String Analysis::json() const {
     s += ",\"highPercent\":" + String(_highPct, 1) + "}";
     return s;
 }
+void Analysis::resetHistoryHeader() {
+    _headerChecked = false;
+    _headerValid = false;
+    _stampColumn = _largeColumn = _smallColumn = _stateColumn = -1;
+}
+
 void Analysis::parseHistoryLine(const String& line) {
     if (!_headerChecked) {
         _headerChecked = true;
@@ -248,6 +257,8 @@ void Analysis::parseHistoryLine(const String& line) {
     if (!strptime(stamp.c_str(), "%Y-%m-%d %H:%M:%S", &tmv)) return;
     time_t t = mktime(&tmv);
     if (t <= 0 || (uint32_t)t > _cutoff || (uint32_t)t + 86400 < _cutoff) return;
+    // Older files may overlap newer files. Never replay a timestamp.
+    if ((uint32_t)t <= _lastHistoryTimestamp) return;
     CompressorState state = CompressorState::UNKNOWN;
     if (name == "OFF") state = CompressorState::OFF;
     else if (name == "HEATING") state = CompressorState::HEATING;
@@ -255,6 +266,8 @@ void Analysis::parseHistoryLine(const String& line) {
     else if (name == "DOWNSTAGING") state = CompressorState::DOWNSTAGING;
     float delta = fabsf(largeText.toFloat() - smallText.toFloat());
     if (!_history.csvMetric()) delta *= 5.0f / 9.0f;
+    if (state == CompressorState::UNKNOWN) return;
+    _lastHistoryTimestamp = (uint32_t)t;
     feed((uint32_t)t, state, delta);
 }
 
@@ -264,7 +277,7 @@ void Analysis::update() {
             struct tm timeInfo;
             if (!getLocalTime(&timeInfo, 0)) return;
             _cutoff = static_cast<uint32_t>(time(nullptr));
-            if (!_history.selectAnalysisFile(_cutoff)) {
+            if (!_history.selectAnalysisFiles(_cutoff)) {
                 _loading = false;
                 recalculate();
                 return;
@@ -272,13 +285,18 @@ void Analysis::update() {
         }
         bool done = false;
         bool ok = _history.readAnalysisBatch(_cursor, 150,
-            [this](const String& line) { parseHistoryLine(line); }, done);
-        if (!ok || done || (_headerChecked && !_headerValid)) {
+            [this](const String& line) {
+                // Each file begins with a header. A header appearing mid-replay
+                // resets the column map for that file.
+                if (line.startsWith("timestamp,")) resetHistoryHeader();
+                parseHistoryLine(line);
+            }, done);
+        if (!ok || done) {
             _loading = false;
-            _hasPrevious = false;
-            _sampleCount = 0;
-            _sumDelta = 0;
+            // Preserve the last partial interval for continuity with live data.
             _completed.valid = false;
+            Serial.printf("Analysis: reconstruction complete, events=%u, last=%lu\n",
+                          (unsigned)_count, (unsigned long)_lastHistoryTimestamp);
             recalculate();
         }
         return;
