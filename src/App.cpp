@@ -157,8 +157,8 @@ void App::run()
     {
         lastHistoryUpdate = now;
         _status->sampleCompressor();
-        _history->write();
         _analysis->sample(*_status);
+        _history->write(*_analysis);
     }
 
     delay(5);
