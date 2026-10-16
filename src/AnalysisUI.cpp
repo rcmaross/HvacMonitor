@@ -33,21 +33,21 @@ AnalysisUI::AnalysisUI(lv_obj_t* parent, Analysis& analysis) : _analysis(analysi
     _lowValue = label(_root, "");
     _low = lv_slider_create(_root);
     lv_obj_set_width(_low, LV_PCT(90));
-    lv_slider_set_range(_low, 0, 49);
+    lv_slider_set_range(_low, 0, 99);
     lv_obj_add_event_cb(_low, changed, LV_EVENT_VALUE_CHANGED, this);
     label(_root, "Medium / High");
     _highValue = label(_root, "");
     _high = lv_slider_create(_root);
     lv_obj_set_width(_high, LV_PCT(90));
-    lv_slider_set_range(_high, 1, 50);
+    lv_slider_set_range(_high, 1, 100);
     lv_obj_add_event_cb(_high, changed, LV_EVENT_VALUE_CHANGED, this);
     _ignoreValue = label(_root, "");
     button(_root, "OFF -10s", decrement, this);
     button(_root, "OFF +10s", increment, this);
     _apply = button(_root, "Recalculate", apply, this);
     _ignore = _analysis.ignoreOff();
-    lv_slider_set_value(_low, _analysis.low(), LV_ANIM_OFF);
-    lv_slider_set_value(_high, _analysis.high(), LV_ANIM_OFF);
+    lv_slider_set_value(_low, _analysis.lowStrength(), LV_ANIM_OFF);
+    lv_slider_set_value(_high, _analysis.highStrength(), LV_ANIM_OFF);
     if (_analysis.autoMode()) lv_obj_add_state(_auto, LV_STATE_CHECKED);
     update();
 }
@@ -71,7 +71,7 @@ void AnalysisUI::apply(lv_event_t* event) {
     auto* ui = static_cast<AnalysisUI*>(lv_event_get_user_data(event));
     bool autoMode = lv_obj_has_state(ui->_auto, LV_STATE_CHECKED);
     ui->_analysis.setAuto(autoMode);
-    if (!autoMode) ui->_analysis.setThresholds(lv_slider_get_value(ui->_low), lv_slider_get_value(ui->_high));
+    if (!autoMode) ui->_analysis.setStrengthThresholds(lv_slider_get_value(ui->_low), lv_slider_get_value(ui->_high));
     ui->_analysis.setIgnoreOff(ui->_ignore);
     ui->_analysis.recalculate();
     ui->_dirty = false;
@@ -106,12 +106,12 @@ void AnalysisUI::update() {
     if (!_dirty) {
         if (_analysis.autoMode()) lv_obj_add_state(_auto, LV_STATE_CHECKED);
         else lv_obj_remove_state(_auto, LV_STATE_CHECKED);
-        lv_slider_set_value(_low, _analysis.low(), LV_ANIM_OFF);
-        lv_slider_set_value(_high, _analysis.high(), LV_ANIM_OFF);
+        lv_slider_set_value(_low, _analysis.lowStrength(), LV_ANIM_OFF);
+        lv_slider_set_value(_high, _analysis.highStrength(), LV_ANIM_OFF);
         _ignore = _analysis.ignoreOff();
     }
     char buf[48];
-    snprintf(buf, sizeof(buf), "%ld C", (long)lv_slider_get_value(_low));
+    snprintf(buf, sizeof(buf), "%ld", (long)lv_slider_get_value(_low));
     lv_label_set_text(_lowValue, buf);
     snprintf(buf, sizeof(buf), "%ld C", (long)lv_slider_get_value(_high));
     lv_label_set_text(_highValue, buf);
