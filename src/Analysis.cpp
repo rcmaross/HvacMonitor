@@ -31,6 +31,14 @@ void Analysis::begin() {
     if (!_events) _events = (AnalysisEvent*)malloc(CAPACITY * sizeof(AnalysisEvent));
     _cutoff = 0;
     _loading = _events && _history.available();
+    Serial.printf("Analysis: event size=%u, capacity=%u\n",
+                (unsigned)sizeof(AnalysisEvent),
+                (unsigned)CAPACITY);
+    Serial.printf("Analysis: events=%p, free PSRAM=%u\n",
+                (void*)_events,
+                (unsigned)heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
+    Serial.printf("Analysis: SD available=%d, loading=%d\n",
+                _history.available(), _loading);
 }
 
 void Analysis::setAuto(bool enabled) { _auto = enabled; save(); recalculate(); }
@@ -165,13 +173,31 @@ String Analysis::json() const {
 void Analysis::update() {
     if (_loading) {
         bool done = false;
-        bool ok = _history.readAnalysisBatch(_cursor, 150, [this](const String& line) {
+            if (_cutoff == 0) {
+                struct tm timeInfo;
+
+                if (!getLocalTime(&timeInfo, 0))
+                    return;
+
+                _cutoff = static_cast<uint32_t>(time(nullptr));
+            }        
+            bool ok = _history.readAnalysisBatch(_cursor, 150, [this](const String& line) {
             int comma = line.indexOf(',');
             if (comma < 0) return;
             String stamp = line.substring(0, comma);
             struct tm tmv = {};
             if (!strptime(stamp.c_str(), "%Y-%m-%d %H:%M:%S", &tmv)) return;
             time_t t = mktime(&tmv);
+            static int debugCount = 0;
+            if (debugCount++ < 5) {
+                Serial.printf(
+                    "Analysis CSV: stamp=%s, parsed=%ld, cutoff=%lu, age=%ld\n",
+                    stamp.c_str(),
+                    (long)t,
+                    (unsigned long)_cutoff,
+                    (long)_cutoff - (long)t
+                );
+            }
             if (t <= 0 || (uint32_t)t > _cutoff || (uint32_t)t + 86400 < _cutoff) return;
             int p = comma + 1, q = line.indexOf(',', p);
             if (q < 0) return;
@@ -191,6 +217,13 @@ void Analysis::update() {
             feed((uint32_t)t, state, delta);
         }, done);
         if (!ok || done) {
+            Serial.printf(
+                "Analysis: rebuild finished, ok=%d, done=%d, cursor=%lu, events=%u\n",
+                ok,
+                done,
+                (unsigned long)_cursor,
+                (unsigned)_count
+            );
             _loading = false;
             _hasPrevious = false;
             _splitNext = false;
