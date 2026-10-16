@@ -34,7 +34,7 @@ private:
     History& _history;
     AnalysisEvent* _events = nullptr;
     size_t _head = 0, _count = 0;
-    bool _loading = false, _auto = true, _hasPrevious = false;
+    bool _loading = false, _auto = true, _hasPrevious = false, _splitNext = false;
     int _low = 7, _high = 17, _ignoreOff = 10;
     float _off = 0, _on = 0, _lowPct = 0, _mediumPct = 0, _highPct = 0;
     uint32_t _cutoff = 0, _cursor = 0, _previousTime = 0, _lastRecalc = 0;
