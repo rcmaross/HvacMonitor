@@ -4,6 +4,7 @@
 #include <FS.h>
 #include <SD.h>
 #include <SPI.h>
+#include <functional>
 
 #include "Status.h"
 
@@ -78,6 +79,8 @@ public:
 
     void begin();
     void write();
+    bool readAnalysisBatch(uint32_t& cursor, size_t limit, const std::function<void(const String&)>& callback, bool& done);
+    bool csvMetric() const;
 
     bool available() const
     {
