@@ -51,7 +51,7 @@ void WebManager::begin()
         if (_server.hasArg("auto")) _analysis.setAuto(_server.arg("auto") == "true");
         if (_server.hasArg("ignoreOff")) _analysis.setIgnoreOff(_server.arg("ignoreOff").toInt());
         if (_server.hasArg("low") && _server.hasArg("high")) {
-            if (!_analysis.setThresholds(_server.arg("low").toInt(), _server.arg("high").toInt())) {
+            if (!_analysis.setStrengthThresholds(_server.arg("low").toInt(), _server.arg("high").toInt())) {
                 _server.send(400, "text/plain", "Invalid thresholds or automatic mode enabled"); return;
             }
         }
