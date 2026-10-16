@@ -269,6 +269,8 @@ bool History::selectAnalysisFile(uint32_t now) {
             if (slash >= 0) name = name.substring(slash + 1);
             if (name.startsWith("history_") && name.endsWith(".csv")) {
                 time_t modified = file.getLastWrite();
+                Serial.printf("Analysis: candidate %s, modified=%ld, now=%lu\\n",
+                              name.c_str(), (long)modified, (unsigned long)now);
                 if (modified >= 1700000000 && modified <= (time_t)now &&
                     modified > newest) {
                     newest = modified;
@@ -281,6 +283,8 @@ bool History::selectAnalysisFile(uint32_t now) {
     }
     directory.close();
     if (!newest || (uint32_t)(now - newest) > 86400) {
+        Serial.printf("Analysis: no eligible history file (newest=%ld, now=%lu)\\n",
+                      (long)newest, (unsigned long)now);
         _analysisFile = "";
         return false;
     }
