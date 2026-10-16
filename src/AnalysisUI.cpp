@@ -85,7 +85,7 @@ void AnalysisUI::update() {
         String data = _analysis.json();
         // Read percentages directly from the shared analysis model JSON.
         auto value = [&data](const char* key) {
-            String token = String('"') + key + "":";
+            String token = String((char)34) + key + String((char)34) + ":";
             int i = data.indexOf(token);
             return i < 0 ? 0.0f : data.substring(i + token.length()).toFloat();
         };
