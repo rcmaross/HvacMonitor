@@ -29,7 +29,7 @@ void Analysis::begin() {
     if (_ignoreOff < 0 || _ignoreOff > 120 || _ignoreOff % 10) _ignoreOff = 10;
     _events = (AnalysisEvent*)heap_caps_malloc(CAPACITY * sizeof(AnalysisEvent), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     if (!_events) _events = (AnalysisEvent*)malloc(CAPACITY * sizeof(AnalysisEvent));
-    _cutoff = (uint32_t)time(nullptr);
+    _cutoff = 0;
     _loading = _events && _history.available();
 }
 
@@ -63,7 +63,7 @@ void Analysis::feed(uint32_t timestamp, CompressorState state, float delta) {
     auto type = state == CompressorState::OFF ? AnalysisEventType::OFF : AnalysisEventType::HEATING;
     if (_hasPrevious && timestamp > _previousTime && timestamp - _previousTime <= 30) {
         append(_previousTime, timestamp - _previousTime, _previousType, _previousDelta,
-               _previousState == CompressorState::DOWNSTAGING && state == CompressorState::PLATEAU);
+               _splitNext);\n        _splitNext = _previousState == CompressorState::DOWNSTAGING && state == CompressorState::PLATEAU;
     }
     _previousTime = timestamp;
     _previousType = type;
@@ -189,7 +189,7 @@ void Analysis::update() {
         }, done);
         if (!ok || done) {
             _loading = false;
-            _hasPrevious = false;
+            _hasPrevious = false;\n            _splitNext = false;
             recalculate();
         }
         return;
