@@ -1,5 +1,6 @@
 #include "History.h"
 #include "App.h"
+#include "Analysis.h"
 
 #include <SD.h>
 #include <math.h>
@@ -38,7 +39,7 @@ void History::begin()
     Serial.println("History SD card ready");
 }
 
-void History::write()
+void History::write(const Analysis& analysis)
 {
     if (!_available)
         return;
@@ -51,7 +52,7 @@ void History::write()
         return;
     }
 
-    static constexpr int CSV_VERSION = 3;
+    static constexpr int CSV_VERSION = 4;
 
     char filename[64];
 
@@ -86,7 +87,10 @@ void History::write()
             "large_slope,"
             "small_slope,"
             "large_small_slope,"
-            "compressor_state"
+            "compressor_state,"
+            "analysis_sample_count,"
+            "analysis_avg_delta_c,"
+            "analysis_end_reason"
         );
     }
 
@@ -115,7 +119,7 @@ void History::write()
     );
 
     file.printf(
-        "%s,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.4f,%.4f,%.4f,%s\n",
+        "%s,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.4f,%.4f,%.4f,%s,%u,%.3f,IN_PROGRESS\n",
         timestamp,
         large,
         small,
@@ -126,8 +130,20 @@ void History::write()
         largeSlope,
         smallSlope,
         largeSlope - smallSlope,
-        Status::compressorStateName(_status.compressorState())
+        Status::compressorStateName(_status.compressorState()),
+        (unsigned)analysis.sampleCount(),
+        analysis.runningAverage()
     );
+    const auto& completed = analysis.completed();
+    if (completed.valid) {
+        // Summary rows carry no raw sensor values and are not replayed as samples.
+        file.printf("%s,,,,,,,,,,%s,%u,%.3f,%s\n",
+                    timestamp,
+                    completed.type == AnalysisEventType::OFF ? "OFF" : "HEATING",
+                    (unsigned)completed.sampleCount,
+                    completed.avgDeltaC,
+                    completed.reason);
+    }
 
     file.flush();
     file.close();
@@ -237,23 +253,105 @@ bool History::csvMetric() const {
     // The existing CSV has no per-row units metadata.
     return app.settingsMetric();
 }
+bool History::selectAnalysisFiles(uint32_t now) {
+    _analysisFileCount = 0;
+    _analysisFileIndex = 0;
+    _analysisFileEnd = 0;
+    if (!_available || now < 1700000000) return false;
+    ScopedMount mount;
+    if (!mount.isReady()) return false;
+    File directory = SD.open(DIRECTORY);
+    if (!directory || !directory.isDirectory()) return false;
+    File file = directory.openNextFile();
+    while (file) {
+        if (!file.isDirectory()) {
+            String name = file.name();
+            int slash = name.lastIndexOf('/');
+            if (slash >= 0) name = name.substring(slash + 1);
+            if (name.startsWith("history_") && name.endsWith(".csv")) {
+                time_t modified = file.getLastWrite();
+                if (modified >= 1700000000 && modified <= (time_t)now &&
+                    (uint32_t)(now - modified) <= 86400) {
+                    // Keep the most recently modified MAX_ANALYSIS_FILES if necessary.
+                    size_t slot = _analysisFileCount;
+                    if (slot == MAX_ANALYSIS_FILES) {
+                        slot = 0;
+                        for (size_t j = 1; j < _analysisFileCount; ++j)
+                            if (_analysisModified[j] < _analysisModified[slot]) slot = j;
+                        if (modified <= _analysisModified[slot]) {
+                            file.close();
+                            file = directory.openNextFile();
+                            continue;
+                        }
+                    } else ++_analysisFileCount;
+                    _analysisFiles[slot] = name;
+                    _analysisModified[slot] = modified;
+                }
+            }
+        }
+        file.close();
+        file = directory.openNextFile();
+    }
+    directory.close();
+    // Oldest modification first, tie-break by filename for deterministic order.
+    for (size_t i = 1; i < _analysisFileCount; ++i) {
+        for (size_t j = i; j > 0; --j) {
+            if (_analysisModified[j - 1] < _analysisModified[j] ||
+                (_analysisModified[j - 1] == _analysisModified[j] &&
+                 _analysisFiles[j - 1] <= _analysisFiles[j])) break;
+            time_t tempTime = _analysisModified[j - 1];
+            _analysisModified[j - 1] = _analysisModified[j];
+            _analysisModified[j] = tempTime;
+            String tempName = _analysisFiles[j - 1];
+            _analysisFiles[j - 1] = _analysisFiles[j];
+            _analysisFiles[j] = tempName;
+        }
+    }
+    Serial.printf("Analysis: %u eligible history files\n", (unsigned)_analysisFileCount);
+    for (size_t i = 0; i < _analysisFileCount; ++i)
+        Serial.printf("Analysis: file %u: %s (modified %ld)\n",
+                      (unsigned)i, _analysisFiles[i].c_str(), (long)_analysisModified[i]);
+    return _analysisFileCount > 0;
+}
+
 bool History::readAnalysisBatch(uint32_t& cursor, size_t limit,
                                 const std::function<void(const String&)>& callback, bool& done) {
     done = true;
-    if (!_available) return false;
+    if (!_available || !_analysisFileCount) return false;
     ScopedMount mount;
     if (!mount.isReady()) return false;
-    File file = SD.open(makePath("history_v3.csv"), FILE_READ);
-    if (!file) return true; // Virgin SD card.
-    if (!file.seek(cursor)) return false;
-    size_t count = 0;
-    while (file.available() && count < limit) {
-        String line = file.readStringUntil('\n');
-        callback(line);
-        ++count;
+    size_t processed = 0;
+    while (_analysisFileIndex < _analysisFileCount && processed < limit) {
+        File file = SD.open(makePath(_analysisFiles[_analysisFileIndex]), FILE_READ);
+        if (!file) {
+            Serial.printf("Analysis: cannot open %s\n", _analysisFiles[_analysisFileIndex].c_str());
+            ++_analysisFileIndex;
+            cursor = 0;
+            continue;
+        }
+        // Snapshot the file length when first opened. New writes during rebuild
+        // are handled by the live path after the startup cutoff.
+        if (!cursor) _analysisFileEnd = file.size();
+        if (!file.seek(cursor)) {
+            file.close();
+            ++_analysisFileIndex;
+            cursor = 0;
+            continue;
+        }
+        while (file.available() && file.position() < _analysisFileEnd && processed < limit) {
+            String line = file.readStringUntil('\n');
+            if (file.position() > _analysisFileEnd) break;
+            callback(line);
+            ++processed;
+        }
+        cursor = file.position();
+        bool fileDone = cursor >= _analysisFileEnd || !file.available();
+        file.close();
+        if (fileDone) {
+            ++_analysisFileIndex;
+            cursor = 0;
+        }
     }
-    cursor = file.position();
-    done = !file.available();
-    file.close();
+    done = _analysisFileIndex >= _analysisFileCount;
     return true;
 }

@@ -60,43 +60,75 @@ void Analysis::setIgnoreOff(int seconds) {
     _ignoreOff = seconds; save();
 }
 
-void Analysis::append(uint32_t start, uint32_t seconds, AnalysisEventType type, float delta, bool split) {
+void Analysis::append(uint32_t start, uint32_t seconds, AnalysisEventType type, float avg) {
     if (!_events || !seconds) return;
-    if (_count && !split) {
-        auto& last = _events[(_head + _count - 1) % CAPACITY];
-        if (last.type == type && last.start + last.seconds == start) {
-            last.seconds += seconds;
-            if (type == AnalysisEventType::HEATING) last.peakDeltaC = fmaxf(last.peakDeltaC, delta);
-            return;
-        }
-    }
     if (_count == CAPACITY) { _head = (_head + 1) % CAPACITY; --_count; }
-    _events[(_head + _count) % CAPACITY] = {start, seconds, delta, type};
+    _events[(_head + _count) % CAPACITY] = {start, seconds, avg, type};
     ++_count;
 }
 
+void Analysis::finish(uint32_t end, const char* reason) {
+    if (!_hasPrevious || !_sampleCount || end <= _intervalStart) return;
+    uint32_t duration = end - _intervalStart;
+    float avg = _sumDelta / _sampleCount;
+    append(_intervalStart, duration, _previousType, avg);
+    _completed.valid = true;
+    _completed.start = _intervalStart;
+    _completed.seconds = duration;
+    _completed.sampleCount = _sampleCount;
+    _completed.avgDeltaC = avg;
+    _completed.type = _previousType;
+    _completed.reason = reason;
+    _sumDelta = 0;
+    _sampleCount = 0;
+}
+
+// Each incoming sample belongs to the interval beginning at its timestamp.
+// The previous sample's state accounts for elapsed time until this sample.
 void Analysis::feed(uint32_t timestamp, CompressorState state, float delta) {
-    if (!timestamp || !isfinite(delta) || state == CompressorState::UNKNOWN) return;
-    auto type = state == CompressorState::OFF ? AnalysisEventType::OFF : AnalysisEventType::HEATING;
-    if (_hasPrevious && timestamp > _previousTime && timestamp - _previousTime <= 30) {
-        append(_previousTime, timestamp - _previousTime, _previousType, _previousDelta,
-               _splitNext);
-        _splitNext = _previousState == CompressorState::DOWNSTAGING && state == CompressorState::PLATEAU;
+    _completed.valid = false;
+    if (!timestamp || !isfinite(delta) || state == CompressorState::UNKNOWN) {
+        _hasPrevious = false;
+        _sampleCount = 0;
+        _sumDelta = 0;
+        return;
     }
+    AnalysisEventType type = state == CompressorState::OFF ? AnalysisEventType::OFF : AnalysisEventType::HEATING;
+    if (_hasPrevious) {
+        if (timestamp <= _previousTime || timestamp - _previousTime > 30) {
+            finish(_previousTime + 10, "STATE_CHANGE");
+            _hasPrevious = false;
+        } else if (type != _previousType) {
+            finish(timestamp, "STATE_CHANGE");
+            _hasPrevious = false;
+        } else if (timestamp >= _intervalStart + 60) {
+            finish(_intervalStart + 60, "MINUTE");
+            _hasPrevious = false;
+        }
+    }
+    if (!_hasPrevious) {
+        _intervalStart = timestamp;
+        _sumDelta = 0;
+        _sampleCount = 0;
+    }
+    _sumDelta += delta;
+    if (_sampleCount < 255) ++_sampleCount;
     _previousTime = timestamp;
     _previousType = type;
-    _previousState = state;
     _previousDelta = delta;
     _hasPrevious = true;
 }
 
 void Analysis::sample(const Status& status) {
-    if (_loading || !_events) return;
+    if (!_events) return;
     time_t now = time(nullptr);
     if (now < 1700000000) return;
     float large = status.largePipeTemperature();
     float small = status.smallPipeTemperature();
     if (!isfinite(large) || !isfinite(small)) return;
+    if (_loading) return; // History is still being replayed; CSV retains samples.
+    if ((uint32_t)now <= _cutoff || (uint32_t)now <= _lastLiveTimestamp) return;
+    _lastLiveTimestamp = (uint32_t)now;
     feed((uint32_t)now, status.compressorState(), fabsf(large - small));
 }
 
@@ -108,8 +140,8 @@ void Analysis::calibrate() {
     for (size_t i = 0; i < _count; ++i) {
         auto& e = at(i);
         if (e.type != AnalysisEventType::HEATING || e.start + e.seconds <= earliest) continue;
-        minimum = fminf(minimum, e.peakDeltaC);
-        maximum = fmaxf(maximum, e.peakDeltaC);
+        minimum = fminf(minimum, e.avgDeltaC);
+        maximum = fmaxf(maximum, e.avgDeltaC);
         ++count;
     }
     if (count < 6 || maximum - minimum < 4) return;
@@ -121,8 +153,8 @@ void Analysis::calibrate() {
             if (e.type != AnalysisEventType::HEATING) continue;
             int best = 0;
             for (int k = 1; k < 3; ++k)
-                if (fabsf(e.peakDeltaC - centers[k]) < fabsf(e.peakDeltaC - centers[best])) best = k;
-            sum[best] += e.peakDeltaC * e.seconds;
+                if (fabsf(e.avgDeltaC - centers[k]) < fabsf(e.avgDeltaC - centers[best])) best = k;
+            sum[best] += e.avgDeltaC * e.seconds;
             weight[best] += e.seconds;
         }
         if (!weight[0] || !weight[1] || !weight[2]) return;
@@ -147,16 +179,16 @@ void Analysis::recalculate() {
         if (end > now) end = now;
         if (end <= start) continue;
         bool heating = e.type == AnalysisEventType::HEATING;
-        float peak = e.peakDeltaC;
+        float avg = e.avgDeltaC;
         if (!heating && e.seconds <= (uint32_t)_ignoreOff && i > 0 && i + 1 < _count &&
             at(i - 1).type == AnalysisEventType::HEATING &&
             at(i + 1).type == AnalysisEventType::HEATING) {
             heating = true;
-            peak = fmaxf(at(i - 1).peakDeltaC, at(i + 1).peakDeltaC);
+            avg = (at(i - 1).avgDeltaC + at(i + 1).avgDeltaC) / 2;
         }
         if (!heating) off += end - start;
-        else if (peak <= _low) low += end - start;
-        else if (peak <= _high) medium += end - start;
+        else if (avg <= _low) low += end - start;
+        else if (avg <= _high) medium += end - start;
         else high += end - start;
     }
     double on = low + medium + high;
@@ -179,63 +211,92 @@ String Analysis::json() const {
     s += ",\"highPercent\":" + String(_highPct, 1) + "}";
     return s;
 }
+void Analysis::resetHistoryHeader() {
+    _headerChecked = false;
+    _headerValid = false;
+    _stampColumn = _largeColumn = _smallColumn = _stateColumn = -1;
+}
+
+void Analysis::parseHistoryLine(const String& line) {
+    if (!_headerChecked) {
+        _headerChecked = true;
+        int column = 0, pos = 0;
+        while (pos <= line.length()) {
+            int next = line.indexOf(',', pos);
+            if (next < 0) next = line.length();
+            String field = line.substring(pos, next);
+            field.trim();
+            if (field == "timestamp") _stampColumn = column;
+            else if (field == "large") _largeColumn = column;
+            else if (field == "small") _smallColumn = column;
+            else if (field == "compressor_state") _stateColumn = column;
+            ++column;
+            pos = next + 1;
+        }
+        _headerValid = _stampColumn >= 0 && _largeColumn >= 0 &&
+                       _smallColumn >= 0 && _stateColumn >= 0;
+        return;
+    }
+    if (!_headerValid) return;
+    String stamp, largeText, smallText, name;
+    int col = 0, pos = 0;
+    while (pos <= line.length()) {
+        int next = line.indexOf(',', pos);
+        if (next < 0) next = line.length();
+        if (col == _stampColumn) stamp = line.substring(pos, next);
+        if (col == _largeColumn) largeText = line.substring(pos, next);
+        if (col == _smallColumn) smallText = line.substring(pos, next);
+        if (col == _stateColumn) name = line.substring(pos, next);
+        ++col;
+        pos = next + 1;
+    }
+    stamp.trim(); name.trim(); largeText.trim(); smallText.trim();
+    // Completed summary rows in v4 have empty raw temperatures.
+    if (!largeText.length() || !smallText.length()) return;
+    struct tm tmv = {};
+    if (!strptime(stamp.c_str(), "%Y-%m-%d %H:%M:%S", &tmv)) return;
+    time_t t = mktime(&tmv);
+    if (t <= 0 || (uint32_t)t > _cutoff || (uint32_t)t + 86400 < _cutoff) return;
+    // Older files may overlap newer files. Never replay a timestamp.
+    if ((uint32_t)t <= _lastHistoryTimestamp) return;
+    CompressorState state = CompressorState::UNKNOWN;
+    if (name == "OFF") state = CompressorState::OFF;
+    else if (name == "HEATING") state = CompressorState::HEATING;
+    else if (name == "PLATEAU") state = CompressorState::PLATEAU;
+    else if (name == "DOWNSTAGING") state = CompressorState::DOWNSTAGING;
+    float delta = fabsf(largeText.toFloat() - smallText.toFloat());
+    if (!_history.csvMetric()) delta *= 5.0f / 9.0f;
+    if (state == CompressorState::UNKNOWN) return;
+    _lastHistoryTimestamp = (uint32_t)t;
+    feed((uint32_t)t, state, delta);
+}
+
 void Analysis::update() {
     if (_loading) {
-        bool done = false;
-            if (_cutoff == 0) {
-                struct tm timeInfo;
-
-                if (!getLocalTime(&timeInfo, 0))
-                    return;
-
-                _cutoff = static_cast<uint32_t>(time(nullptr));
-            }        
-            bool ok = _history.readAnalysisBatch(_cursor, 150, [this](const String& line) {
-            int comma = line.indexOf(',');
-            if (comma < 0) return;
-            String stamp = line.substring(0, comma);
-            struct tm tmv = {};
-            if (!strptime(stamp.c_str(), "%Y-%m-%d %H:%M:%S", &tmv)) return;
-            time_t t = mktime(&tmv);
-            static int debugCount = 0;
-            if (debugCount++ < 5) {
-                Serial.printf(
-                    "Analysis CSV: stamp=%s, parsed=%ld, cutoff=%lu, age=%ld\n",
-                    stamp.c_str(),
-                    (long)t,
-                    (unsigned long)_cutoff,
-                    (long)_cutoff - (long)t
-                );
+        if (_cutoff == 0) {
+            struct tm timeInfo;
+            if (!getLocalTime(&timeInfo, 0)) return;
+            _cutoff = static_cast<uint32_t>(time(nullptr));
+            if (!_history.selectAnalysisFiles(_cutoff)) {
+                _loading = false;
+                recalculate();
+                return;
             }
-            if (t <= 0 || (uint32_t)t > _cutoff || (uint32_t)t + 86400 < _cutoff) return;
-            int p = comma + 1, q = line.indexOf(',', p);
-            if (q < 0) return;
-            float large = line.substring(p, q).toFloat();
-            p = q + 1; q = line.indexOf(',', p);
-            if (q < 0) return;
-            float small = line.substring(p, q).toFloat();
-            String name = line.substring(line.lastIndexOf(',') + 1);
-            name.trim();
-            CompressorState state = CompressorState::UNKNOWN;
-            if (name == "OFF") state = CompressorState::OFF;
-            else if (name == "HEATING") state = CompressorState::HEATING;
-            else if (name == "PLATEAU") state = CompressorState::PLATEAU;
-            else if (name == "DOWNSTAGING") state = CompressorState::DOWNSTAGING;
-            float delta = fabsf(large - small);
-            if (!_history.csvMetric()) delta *= 5.0f / 9.0f;
-            feed((uint32_t)t, state, delta);
-        }, done);
+        }
+        bool done = false;
+        bool ok = _history.readAnalysisBatch(_cursor, 150,
+            [this](const String& line) {
+                // Each file begins with a header. A header appearing mid-replay
+                // resets the column map for that file.
+                if (line.startsWith("timestamp,")) resetHistoryHeader();
+                parseHistoryLine(line);
+            }, done);
         if (!ok || done) {
-            Serial.printf(
-                "Analysis: rebuild finished, ok=%d, done=%d, cursor=%lu, events=%u\n",
-                ok,
-                done,
-                (unsigned long)_cursor,
-                (unsigned)_count
-            );
             _loading = false;
-            _hasPrevious = false;
-            _splitNext = false;
+            // Preserve the last partial interval for continuity with live data.
+            _completed.valid = false;
+            Serial.printf("Analysis: reconstruction complete, events=%u, last=%lu\n",
+                          (unsigned)_count, (unsigned long)_lastHistoryTimestamp);
             recalculate();
         }
         return;
