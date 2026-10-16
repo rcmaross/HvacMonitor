@@ -85,6 +85,8 @@ void App::begin()
 
     _history = new History(*_status);
     _history->begin();
+    _analysis = new Analysis(*_history);
+    _analysis->begin();
 
     _network = new Network(); 
     _network->begin();
@@ -93,13 +95,13 @@ void App::begin()
     _ota->begin();
 
 
-    _web = new WebManager(*_status, *_history);
+    _web = new WebManager(*_status, *_history, *_analysis);
     _web->begin();
 
     _clock = new Clock(*_settings, *_network);
 
     _clock->begin();
-    _ui = new UIManager(*_status, *_network, *_settings, *_clock);
+    _ui = new UIManager(*_status, *_network, *_settings, *_clock, *_analysis);
     printMemoryStats();
 }
 
@@ -132,6 +134,7 @@ void App::run()
     _network->update();
     _ota->update();
     _web->update();
+    _analysis->update();
 
     uint32_t now = millis();
 
@@ -155,6 +158,7 @@ void App::run()
         lastHistoryUpdate = now;
         _status->sampleCompressor();
         _history->write();
+        _analysis->sample(*_status);
     }
 
     delay(5);
