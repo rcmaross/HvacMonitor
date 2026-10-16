@@ -85,9 +85,11 @@ void Analysis::sample(const Status& status) {
 void Analysis::calibrate() {
     float centers[3] = {}, minimum = INFINITY, maximum = -INFINITY;
     size_t count = 0;
+    uint32_t now = (uint32_t)time(nullptr);
+    uint32_t earliest = now > 86400 ? now - 86400 : 0;
     for (size_t i = 0; i < _count; ++i) {
         auto& e = at(i);
-        if (e.type != AnalysisEventType::HEATING) continue;
+        if (e.type != AnalysisEventType::HEATING || e.start + e.seconds <= earliest) continue;
         minimum = fminf(minimum, e.peakDeltaC);
         maximum = fmaxf(maximum, e.peakDeltaC);
         ++count;
