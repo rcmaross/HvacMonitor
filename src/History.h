@@ -7,6 +7,7 @@
 #include <functional>
 
 #include "Status.h"
+class Analysis;
 
 class History
 {
@@ -78,7 +79,8 @@ public:
     explicit History(Status& status);
 
     void begin();
-    void write();
+    void write(const Analysis& analysis);
+    bool selectAnalysisFile(uint32_t now);
     bool readAnalysisBatch(uint32_t& cursor, size_t limit, const std::function<void(const String&)>& callback, bool& done);
     bool csvMetric() const;
 
@@ -95,6 +97,7 @@ private:
     Status& _status;
 
     bool _available = false;
+    String _analysisFile;
 
     static constexpr const char* DIRECTORY = "/HvacMonitor";
 
