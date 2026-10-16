@@ -113,7 +113,7 @@ void AnalysisUI::update() {
     char buf[48];
     snprintf(buf, sizeof(buf), "%ld", (long)lv_slider_get_value(_low));
     lv_label_set_text(_lowValue, buf);
-    snprintf(buf, sizeof(buf), "%ld C", (long)lv_slider_get_value(_high));
+    snprintf(buf, sizeof(buf), "%ld", (long)lv_slider_get_value(_high));
     lv_label_set_text(_highValue, buf);
     snprintf(buf, sizeof(buf), "Ignore OFF <= %d seconds", _ignore);
     lv_label_set_text(_ignoreValue, buf);
