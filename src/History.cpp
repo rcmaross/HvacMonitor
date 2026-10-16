@@ -299,7 +299,7 @@ bool History::readAnalysisBatch(uint32_t& cursor, size_t limit,
     if (!file || !file.seek(cursor)) return false;
     size_t count = 0;
     while (file.available() && count < limit) {
-        String line = file.readStringUntil('\\n');
+        String line = file.readStringUntil('\n');
         callback(line);
         ++count;
     }
