@@ -65,6 +65,9 @@ private:
     int _stampColumn = -1, _largeColumn = -1, _smallColumn = -1, _stateColumn = -1;
     bool _headerChecked = false, _headerValid = false;
     void parseHistoryLine(const String& line);
+    void resetHistoryHeader();
+    uint32_t _lastHistoryTimestamp = 0;
+    uint32_t _lastLiveTimestamp = 0;
     void save();
     const AnalysisEvent& at(size_t i) const { return _events[(_head + i) % CAPACITY]; }
 };
