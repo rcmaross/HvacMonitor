@@ -23,10 +23,13 @@ public:
     bool loading() const { return _loading; }
     bool autoMode() const { return _auto; }
     int low() const { return _low; }
+    int lowStrength() const { return _low * 2; }
+    int highStrength() const { return _high * 2; }
     int high() const { return _high; }
     int ignoreOff() const { return _ignoreOff; }
     void setAuto(bool enabled);
     bool setThresholds(int low, int high);
+    bool setStrengthThresholds(int low, int high);
     void setIgnoreOff(int seconds);
     String json() const;
 private:
