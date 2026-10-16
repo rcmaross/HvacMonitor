@@ -1,5 +1,6 @@
 #include "History.h"
 #include "App.h"
+#include "Analysis.h"
 
 #include <SD.h>
 #include <math.h>
@@ -38,7 +39,7 @@ void History::begin()
     Serial.println("History SD card ready");
 }
 
-void History::write()
+void History::write(const Analysis& analysis)
 {
     if (!_available)
         return;
@@ -51,7 +52,7 @@ void History::write()
         return;
     }
 
-    static constexpr int CSV_VERSION = 3;
+    static constexpr int CSV_VERSION = 4;
 
     char filename[64];
 
@@ -86,7 +87,10 @@ void History::write()
             "large_slope,"
             "small_slope,"
             "large_small_slope,"
-            "compressor_state"
+            "compressor_state,"
+            "analysis_sample_count,"
+            "analysis_avg_delta_c,"
+            "analysis_end_reason"
         );
     }
 
@@ -126,8 +130,20 @@ void History::write()
         largeSlope,
         smallSlope,
         largeSlope - smallSlope,
-        Status::compressorStateName(_status.compressorState())
+        Status::compressorStateName(_status.compressorState()),
+        (unsigned)analysis.sampleCount(),
+        analysis.runningAverage()
     );
+    const auto& completed = analysis.completed();
+    if (completed.valid) {
+        // Summary rows carry no raw sensor values and are not replayed as samples.
+        file.printf("%s,,,,,,,,,,%s,%u,%.3f,%s\\n",
+                    timestamp,
+                    completed.type == AnalysisEventType::OFF ? "OFF" : "HEATING",
+                    (unsigned)completed.sampleCount,
+                    completed.avgDeltaC,
+                    completed.reason);
+    }
 
     file.flush();
     file.close();
@@ -237,18 +253,53 @@ bool History::csvMetric() const {
     // The existing CSV has no per-row units metadata.
     return app.settingsMetric();
 }
+bool History::selectAnalysisFile(uint32_t now) {
+    _analysisFile = "";
+    if (!_available || now < 1700000000) return false;
+    ScopedMount mount;
+    if (!mount.isReady()) return false;
+    File directory = SD.open(DIRECTORY);
+    if (!directory || !directory.isDirectory()) return false;
+    time_t newest = 0;
+    File file = directory.openNextFile();
+    while (file) {
+        if (!file.isDirectory()) {
+            String name = file.name();
+            int slash = name.lastIndexOf('/');
+            if (slash >= 0) name = name.substring(slash + 1);
+            if (name.startsWith("history_") && name.endsWith(".csv")) {
+                time_t modified = file.getLastWrite();
+                if (modified >= 1700000000 && modified <= (time_t)now &&
+                    modified > newest) {
+                    newest = modified;
+                    _analysisFile = name;
+                }
+            }
+        }
+        file.close();
+        file = directory.openNextFile();
+    }
+    directory.close();
+    if (!newest || (uint32_t)(now - newest) > 86400) {
+        _analysisFile = "";
+        return false;
+    }
+    Serial.printf("Analysis: selected %s (modified %ld)\\n",
+                  _analysisFile.c_str(), (long)newest);
+    return true;
+}
+
 bool History::readAnalysisBatch(uint32_t& cursor, size_t limit,
                                 const std::function<void(const String&)>& callback, bool& done) {
     done = true;
-    if (!_available) return false;
+    if (!_available || !_analysisFile.length()) return false;
     ScopedMount mount;
     if (!mount.isReady()) return false;
-    File file = SD.open(makePath("history_v3.csv"), FILE_READ);
-    if (!file) return true; // Virgin SD card.
-    if (!file.seek(cursor)) return false;
+    File file = SD.open(makePath(_analysisFile), FILE_READ);
+    if (!file || !file.seek(cursor)) return false;
     size_t count = 0;
     while (file.available() && count < limit) {
-        String line = file.readStringUntil('\n');
+        String line = file.readStringUntil('\\n');
         callback(line);
         ++count;
     }
