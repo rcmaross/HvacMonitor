@@ -46,6 +46,15 @@ bool Analysis::setThresholds(int low, int high) {
     if (_auto || low < 0 || high > 100 || low >= high) return false;
     _low = low; _high = high; save(); return true;
 }
+bool Analysis::setStrengthThresholds(int low, int high) {
+    if (low < 0 || high > 100 || low >= high) return false;
+    // The public strength scale maps to the current 0..50 C delta range.
+    // Keep the conversion here so the UI remains independent of the algorithm.
+    int internalLow = (low + 1) / 2;
+    int internalHigh = (high + 1) / 2;
+    if (internalLow >= internalHigh) return false;
+    return setThresholds(internalLow, internalHigh);
+}
 void Analysis::setIgnoreOff(int seconds) {
     if (seconds < 0 || seconds > 120 || seconds % 10) return;
     _ignoreOff = seconds; save();
@@ -162,7 +171,7 @@ String Analysis::json() const {
     String s = "{";
     s += "\"loading\":" + String(_loading ? "true" : "false");
     s += ",\"auto\":" + String(_auto ? "true" : "false");
-    s += ",\"low\":" + String(_low) + ",\"high\":" + String(_high);
+    s += ",\"low\":" + String(lowStrength()) + ",\"high\":" + String(highStrength());
     s += ",\"ignoreOff\":" + String(_ignoreOff);
     s += ",\"off\":" + String(_off, 1) + ",\"on\":" + String(_on, 1);
     s += ",\"lowPercent\":" + String(_lowPct, 1);
