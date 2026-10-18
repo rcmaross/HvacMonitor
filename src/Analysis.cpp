@@ -114,7 +114,8 @@ void Analysis::feed(uint32_t timestamp, CompressorState state, float delta) {
     _previousType = type;
     _previousDelta = delta;
     _hasPrevious = true;
-    if (!_completed.valid && timestamp >= _intervalStart + 60) {
+    // Six 10-second samples form a minute; the sixth is the MINUTE row.
+    if (!_completed.valid && _sampleCount >= 6) {
         finish(timestamp + 10, "MINUTE");
         _hasPrevious = false;
     }
