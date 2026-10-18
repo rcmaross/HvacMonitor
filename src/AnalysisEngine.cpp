@@ -12,9 +12,9 @@ AnalysisTotals AnalysisEngine::calculate(const AnalysisEvent* events, size_t cou
         if (end <= start) return;
         const uint64_t seconds = end - start;
         switch (classify(cycle.end - cycle.start, highTicks)) {
-            case Level::MAINT: t.maint += seconds; break;
-            case Level::LOW: t.low += seconds; break;
-            case Level::HIGH: t.high += seconds; break;
+            case Level::Maint: t.maint += seconds; break;
+            case Level::Low: t.low += seconds; break;
+            case Level::High: t.high += seconds; break;
         }
     });
     t.on = t.maint + t.low + t.high;
