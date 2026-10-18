@@ -42,7 +42,28 @@
         }
 
         .header-right {
-            text-align: right;
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 20px;
+        }
+
+        .wifi-bars {
+            display: flex;
+            align-items: flex-end;
+            gap: 3px;
+            height: 21px;
+        }
+
+        .wifi-bar {
+            display: block;
+            width: 4px;
+            background: #40474D;
+            border-radius: 1px;
+        }
+
+        .wifi-bar.active {
+            background: #F2F4F5;
         }
 
         .body {
@@ -102,9 +123,17 @@
 <div class="app">
 
     <div class="header">
-        <div id="wifi">Wi-Fi</div>
+        <div id="version">--</div>
         <div id="time" class="header-center">--:--</div>
-        <div class="header-right">100%</div>
+        <div class="header-right">
+            <div class="wifi-bars" id="wifi" role="img" aria-label="Wi-Fi signal unavailable">
+                <span class="wifi-bar" style="height:5px"></span>
+                <span class="wifi-bar" style="height:9px"></span>
+                <span class="wifi-bar" style="height:13px"></span>
+                <span class="wifi-bar" style="height:17px"></span>
+            </div>
+            <span>100%</span>
+        </div>
     </div>
 
     <div class="body">
@@ -157,8 +186,15 @@ async function updateHeader()
         const response = await fetch("/api/status");
         const data = await response.json();
 
-        document.getElementById("wifi").textContent =
-            data.rssi + " dBm";
+        const rssi = Number(data.rssi);
+        const bars = Number.isFinite(rssi) && rssi < 0
+            ? (rssi >= -55 ? 4 : rssi >= -65 ? 3 : rssi >= -75 ? 2 : 1)
+            : 0;
+        document.querySelectorAll("#wifi .wifi-bar").forEach((bar, index) => {
+            bar.classList.toggle("active", index < bars);
+        });
+        document.getElementById("wifi").setAttribute("aria-label",
+            bars ? "Wi-Fi signal: " + bars + " of 4 bars" : "Wi-Fi disconnected");
 
         document.getElementById("time").textContent =
             data.time;
@@ -168,6 +204,20 @@ async function updateHeader()
     }
 }
 
+async function updateVersion()
+{
+    try {
+        const response = await fetch("/api/firmware");
+        if (!response.ok) return;
+        const data = await response.json();
+        document.getElementById("version").textContent =
+            String(data.version || "").split("-dev.")[0] || "--";
+    } catch (error) {
+        console.log(error);
+    }
+}
+
+updateVersion();
 updateHeader();
 
 setInterval(
