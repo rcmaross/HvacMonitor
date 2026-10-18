@@ -3,6 +3,8 @@
 #include "generated/status_html.h"
 #include "generated/history_html.h"
 #include "generated/analysis_html.h"
+#include "generated/firmware_html.h"
+#include "BuildInfo.h"
 
 static bool validHistoryFilename(const String& name)
 {
@@ -45,6 +47,14 @@ void WebManager::begin()
         _server.send(200, "application/json", _statusWeb.statusJson());
     });
 
+    _server.on("/firmware", HTTP_GET, [this]() { _server.send(200, "text/html", FIRMWARE_HTML); });
+    _server.on("/api/firmware", HTTP_GET, [this]() {
+        String json = String("{\"version\":\"") + BuildInfo::version() +
+            "\",\"commit\":\"" + BuildInfo::commit() +
+            "\",\"type\":\"" + BuildInfo::buildType() +
+            "\",\"date\":\"" + BuildInfo::buildDate() + "\"}";
+        _server.send(200, "application/json", json);
+    });
     _server.on("/analysis", HTTP_GET, [this]() { _server.send(200, "text/html", ANALYSIS_HTML); });
     _server.on("/api/analysis", HTTP_GET, [this]() { _server.send(200, "application/json", _analysis.json()); });
     _server.on("/api/analysis/config", HTTP_POST, [this]() {
