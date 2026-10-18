@@ -52,7 +52,7 @@ void History::write(const Analysis& analysis)
         return;
     }
 
-    static constexpr int CSV_VERSION = 4;
+    static constexpr int CSV_VERSION = 5;
 
     char filename[64];
 
@@ -118,32 +118,23 @@ void History::write(const Analysis& analysis)
         &local
     );
 
-    file.printf(
-        "%s,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.4f,%.4f,%.4f,%s,%u,%.3f,IN_PROGRESS\n",
-        timestamp,
-        large,
-        small,
-        outside,
-        fabsf(large - small),
-        fabsf(large - outside),
-        fabsf(small - outside),
-        largeSlope,
-        smallSlope,
-        largeSlope - smallSlope,
-        Status::compressorStateName(_status.compressorState()),
-        (unsigned)analysis.sampleCount(),
-        analysis.runningAverage()
-    );
     const auto& completed = analysis.completed();
-    if (completed.valid) {
-        // Summary rows carry no raw sensor values and are not replayed as samples.
-        file.printf("%s,,,,,,,,,,%s,%u,%.3f,%s\n",
-                    timestamp,
-                    completed.type == AnalysisEventType::OFF ? "OFF" : "HEATING",
-                    (unsigned)completed.sampleCount,
-                    completed.avgDeltaC,
-                    completed.reason);
-    }
+    // MINUTE contains the boundary sample; STATE_CHANGE marks the new state.
+    // On STATE_CHANGE the prior row holds the old interval's final average.
+    const bool minute = completed.valid && strcmp(completed.reason, "MINUTE") == 0;
+    const char* reason = completed.valid ? completed.reason : "IN_PROGRESS";
+    const unsigned count = minute ? (unsigned)completed.sampleCount
+                                  : (unsigned)analysis.sampleCount();
+    const float average = minute ? completed.avgDeltaC : analysis.runningAverage();
+
+    file.printf(
+        "%s,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.4f,%.4f,%.4f,%s,%u,%.3f,%s\n",
+        timestamp, large, small, outside,
+        fabsf(large - small), fabsf(large - outside), fabsf(small - outside),
+        largeSlope, smallSlope, largeSlope - smallSlope,
+        Status::compressorStateName(_status.compressorState()),
+        count, average, reason
+    );
 
     file.flush();
     file.close();
