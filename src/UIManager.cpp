@@ -291,22 +291,22 @@ void UIManager::createNavigation()
     lv_obj_t* label;
 
     label = lv_label_create(_statusButton);
-    lv_label_set_text(label, "STATUS");
+    lv_label_set_text(label, LV_SYMBOL_HOME);
     lv_obj_center(label);
 
     label = lv_label_create(_analysisButton);
-    lv_label_set_text(label, "ANALYSIS");
+    lv_label_set_text(label, LV_SYMBOL_CHARGE);
     lv_obj_center(label);
 
     label = lv_label_create(_settingsButton);
-    lv_label_set_text(label, "SETTINGS");
+    lv_label_set_text(label, LV_SYMBOL_SETTINGS);
     lv_obj_center(label);
 
     label = lv_label_create(_networkButton);
-    lv_label_set_text(label, "NETWORK");
+    lv_label_set_text(label, LV_SYMBOL_WIFI);
     lv_obj_center(label);
     label = lv_label_create(_firmwareButton);
-    lv_label_set_text(label, "FW");
+    lv_label_set_text(label, LV_SYMBOL_DOWNLOAD);
     lv_obj_center(label);
 
     lv_obj_add_event_cb(
