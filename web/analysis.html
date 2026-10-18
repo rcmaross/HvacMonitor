@@ -12,10 +12,10 @@ button:disabled{opacity:.4}#loading{color:#e2b44f}
 <h2>Analysis <small>Last 24h</small></h2>
 <div id="loading"></div>
 <div class="stats"><div class="card">OFF<strong id="off">--</strong></div><div class="card">ON<strong id="on">--</strong></div></div>
-<div class="levels"><div>LOW<strong id="lp">--</strong></div><div>MEDIUM<strong id="mp">--</strong></div><div>HIGH<strong id="hp">--</strong></div></div>
+<div class="levels"><div>LOW<strong id="lp">--</strong></div><div>MAINT<strong id="mp">--</strong></div><div>HIGH<strong id="hp">--</strong></div></div>
 <section><label><input id="auto" type="checkbox"> Auto Calibrate</label>
-<label>Low / Medium: <span id="lv"></span><input id="low" type="range" min="0" max="99" step="1"></label>
-<label>Medium / High: <span id="hv"></span><input id="high" type="range" min="1" max="100" step="1"></label>
+<label>MAINT: ≤3 minutes<input id="low" type="hidden" value="6"></label>
+<label>LOW / HIGH: <span id="hv"></span> minutes<input id="high" type="range" min="1" max="100" step="1"></label>
 <label>Ignore OFF periods ≤ <span id="iv"></span> seconds
 <button id="minus" type="button">−</button><button id="plus" type="button">+</button></label>
 <button id="apply" type="button">Recalculate</button></section></main>
@@ -31,12 +31,12 @@ async function refresh(){
   if(!initialized||!dirty){
    el('auto').checked=d.auto;el('low').value=d.low;el('high').value=d.high;el('iv').textContent=d.ignoreOff;initialized=true;
   }
-  el('low').disabled=el('high').disabled=el('auto').checked;
-  el('lv').textContent=el('low').value;el('hv').textContent=el('high').value;
+  el('high').disabled=el('auto').checked;
+  el('hv').textContent=(Number(el('high').value)/2).toFixed(1);
   el('apply').disabled=d.loading;
  }catch(e){el('loading').textContent='Unable to load analysis';}
 }
-for(const id of ['auto','low','high'])el(id).addEventListener('input',()=>{dirty=true;el('low').disabled=el('high').disabled=el('auto').checked;el('lv').textContent=el('low').value;el('hv').textContent=el('high').value});
+for(const id of ['auto','high'])el(id).addEventListener('input',()=>{dirty=true;el('low').disabled=el('high').disabled=el('auto').checked;el('lv').textContent=el('low').value;el('hv').textContent=el('high').value});
 el('minus').onclick=()=>{el('iv').textContent=Math.max(0,+el('iv').textContent-10);dirty=true};
 el('plus').onclick=()=>{el('iv').textContent=Math.min(120,+el('iv').textContent+10);dirty=true};
 el('apply').onclick=async()=>{
