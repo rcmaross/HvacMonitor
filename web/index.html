@@ -64,6 +64,15 @@
             font-size: 16px;
         }
 
+        .nav-icon {
+            display: inline-block;
+            width: 28px;
+            text-align: center;
+            font-size: 19px;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+
         .nav-item:hover {
             background: #20272D;
             color: #F2F4F5;
@@ -100,25 +109,25 @@
     <div class="body">
 
         <div class="navigation">
-            <div class="nav-item" onclick="showPage('analysis', '/analysis')">ANALYSIS</div>
+            <div class="nav-item" onclick="showPage('analysis', '/analysis')"><span class="nav-icon" aria-hidden="true">▥</span>ANALYSIS</div>
             <div class="nav-item active"
                  onclick="showPage('status', '/status')">
-                STATUS
+                <span class="nav-icon" aria-hidden="true">⌂</span>STATUS
             </div>
 
             <div class="nav-item"
                 onclick="showPage('history', '/history')">
-                HISTORY
+                <span class="nav-icon" aria-hidden="true">◷</span>HISTORY
             </div>            
             
             <div class="nav-item">
-                SETTINGS
+                <span class="nav-icon" aria-hidden="true">⚙</span>SETTINGS
             </div>
 
             <div class="nav-item">
-                NETWORK
+                <span class="nav-icon" aria-hidden="true">◉</span>NETWORK
             </div>
-            <div class="nav-item" onclick="showPage('firmware', '/firmware')">FIRMWARE</div>
+            <div class="nav-item" onclick="showPage('firmware', '/firmware')"><span class="nav-icon" aria-hidden="true">↓</span>FIRMWARE</div>
         </div>
 
         <div class="content">
