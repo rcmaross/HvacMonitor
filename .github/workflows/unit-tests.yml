@@ -38,11 +38,11 @@ jobs:
           echo 'DRAM includes initialized and zero-initialized static data; IRAM is instruction memory.' >> "$GITHUB_STEP_SUMMARY"
           echo 'External PSRAM allocated dynamically is not reflected as runtime usage here.' >> "$GITHUB_STEP_SUMMARY"
           echo '### Allocated sections (bytes)' >> "$GITHUB_STEP_SUMMARY"
-          echo '\`\`\`text' >> "$GITHUB_STEP_SUMMARY"
+          echo '~~~text' >> "$GITHUB_STEP_SUMMARY"
           "$SIZE" -A "$ELF" | tee /tmp/esp32-sections.txt
-          grep -E '^\\.(dram0|iram0|flash|ext_ram|noinit)' /tmp/esp32-sections.txt >> "$GITHUB_STEP_SUMMARY" || true
-          echo '\`\`\`' >> "$GITHUB_STEP_SUMMARY"
+          grep -E '^\.(dram0|iram0|flash|ext_ram|noinit)' /tmp/esp32-sections.txt >> "$GITHUB_STEP_SUMMARY" || true
+          echo '~~~' >> "$GITHUB_STEP_SUMMARY"
           echo '### Total ELF sections' >> "$GITHUB_STEP_SUMMARY"
-          echo '\`\`\`text' >> "$GITHUB_STEP_SUMMARY"
+          echo '~~~text' >> "$GITHUB_STEP_SUMMARY"
           "$SIZE" "$ELF" | tee -a "$GITHUB_STEP_SUMMARY"
-          echo '\`\`\`' >> "$GITHUB_STEP_SUMMARY"
+          echo '~~~' >> "$GITHUB_STEP_SUMMARY"
