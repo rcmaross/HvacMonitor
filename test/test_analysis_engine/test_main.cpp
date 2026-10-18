@@ -7,11 +7,11 @@ void test_boundaries() {
     TEST_ASSERT_EQUAL_UINT32(1200, AnalysisEngine::secondsFromTicks(40));
     TEST_ASSERT_FALSE(AnalysisEngine::validHighTicks(6));
     TEST_ASSERT_TRUE(AnalysisEngine::validHighTicks(100));
-    TEST_ASSERT_EQUAL_INT((int)AnalysisEngine::Level::MAINT, (int)AnalysisEngine::classify(180,40));
-    TEST_ASSERT_EQUAL_INT((int)AnalysisEngine::Level::LOW, (int)AnalysisEngine::classify(181,40));
-    TEST_ASSERT_EQUAL_INT((int)AnalysisEngine::Level::LOW, (int)AnalysisEngine::classify(1199,40));
-    TEST_ASSERT_EQUAL_INT((int)AnalysisEngine::Level::HIGH, (int)AnalysisEngine::classify(1200,40));
-    TEST_ASSERT_EQUAL_INT((int)AnalysisEngine::Level::HIGH, (int)AnalysisEngine::classify(3000,100));
+    TEST_ASSERT_EQUAL_INT((int)AnalysisEngine::Level::Maint, (int)AnalysisEngine::classify(180,40));
+    TEST_ASSERT_EQUAL_INT((int)AnalysisEngine::Level::Low, (int)AnalysisEngine::classify(181,40));
+    TEST_ASSERT_EQUAL_INT((int)AnalysisEngine::Level::Low, (int)AnalysisEngine::classify(1199,40));
+    TEST_ASSERT_EQUAL_INT((int)AnalysisEngine::Level::High, (int)AnalysisEngine::classify(1200,40));
+    TEST_ASSERT_EQUAL_INT((int)AnalysisEngine::Level::High, (int)AnalysisEngine::classify(3000,100));
 }
 void test_empty() {
     AnalysisTotals t = AnalysisEngine::calculate(nullptr,0,0,3600,40,10);
