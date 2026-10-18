@@ -5,6 +5,7 @@
 #include "AnalysisUI.h"
 #include "SettingsUI.h"
 #include "NetworkUI.h"
+#include "FirmwareUI.h"
 
 UIManager::UIManager(Status& status, Network& network, Settings& settings, Clock& clock, Analysis& analysis)
     : _status(status), _network(network), _settings(settings), _clock(clock), _analysis(analysis)
@@ -267,21 +268,25 @@ void UIManager::createNavigation()
     _analysisButton = lv_button_create(_tabBar);
     _settingsButton = lv_button_create(_tabBar);
     _networkButton = lv_button_create(_tabBar);
+    _firmwareButton = lv_button_create(_tabBar);
 
     lv_obj_set_flex_grow(_statusButton, 1);
     lv_obj_set_flex_grow(_analysisButton, 1);
     lv_obj_set_flex_grow(_settingsButton, 1);
     lv_obj_set_flex_grow(_networkButton, 1);
+    lv_obj_set_flex_grow(_firmwareButton, 1);
 
     lv_obj_set_height(_statusButton, LV_PCT(100));
     lv_obj_set_height(_analysisButton, LV_PCT(100));
     lv_obj_set_height(_settingsButton, LV_PCT(100));
     lv_obj_set_height(_networkButton, LV_PCT(100));
+    lv_obj_set_height(_firmwareButton, LV_PCT(100));
 
     lv_obj_set_style_radius(_statusButton, 0, 0);
     lv_obj_set_style_radius(_analysisButton, 0, 0);
     lv_obj_set_style_radius(_settingsButton, 0, 0);
     lv_obj_set_style_radius(_networkButton, 0, 0);
+    lv_obj_set_style_radius(_firmwareButton, 0, 0);
 
     lv_obj_t* label;
 
@@ -300,6 +305,9 @@ void UIManager::createNavigation()
     label = lv_label_create(_networkButton);
     lv_label_set_text(label, "NETWORK");
     lv_obj_center(label);
+    label = lv_label_create(_firmwareButton);
+    lv_label_set_text(label, "FW");
+    lv_obj_center(label);
 
     lv_obj_add_event_cb(
         _statusButton,
@@ -317,6 +325,7 @@ void UIManager::createNavigation()
         this
     );
 
+    lv_obj_add_event_cb(_firmwareButton, firmwareButtonClicked, LV_EVENT_CLICKED, this);
     lv_obj_add_event_cb(
         _networkButton,
         networkButtonClicked,
@@ -358,6 +367,9 @@ void UIManager::showScreen(Screen screen)
 
         case Screen::Network:
             _currentUI = new NetworkUI(_contentArea, _network);
+            break;
+        case Screen::Firmware:
+            _currentUI = new FirmwareUI(_contentArea);
             break;
     }
 
@@ -407,4 +419,9 @@ void UIManager::networkButtonClicked(lv_event_t* event)
 void UIManager::analysisButtonClicked(lv_event_t* event) {
     auto* ui = static_cast<UIManager*>(lv_event_get_user_data(event));
     ui->showScreen(Screen::Analysis);
+}
+
+void UIManager::firmwareButtonClicked(lv_event_t* event) {
+    auto* ui = static_cast<UIManager*>(lv_event_get_user_data(event));
+    ui->showScreen(Screen::Firmware);
 }
