@@ -11,9 +11,9 @@ struct AnalysisEvent {
     AnalysisEventType type;
 };
 struct AnalysisTotals {
-    double off = 0, on = 0, maint = 0, low = 0, high = 0;
-    double offPercent = 0, onPercent = 0;
-    double maintPercent = 0, lowPercent = 0, highPercent = 0;
+    uint64_t off = 0, on = 0, maint = 0, low = 0, high = 0;
+    float offPercent = 0, onPercent = 0;
+    float maintPercent = 0, lowPercent = 0, highPercent = 0;
 };
 class AnalysisEngine {
 public:
