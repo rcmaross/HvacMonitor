@@ -1,5 +1,7 @@
 #include <unity.h>
 #include "AnalysisEngine.h"
+// Compile the actual production engine in the native test binary.
+#include "../../src/AnalysisEngine.cpp"
 
 void test_boundaries() {
     TEST_ASSERT_EQUAL_UINT32(1200, AnalysisEngine::secondsFromTicks(40));
