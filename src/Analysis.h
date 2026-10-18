@@ -3,14 +3,7 @@
 #include <Preferences.h>
 #include "Status.h"
 #include "History.h"
-
-enum class AnalysisEventType : uint8_t { OFF, HEATING };
-struct AnalysisEvent {
-    uint32_t start;
-    uint32_t seconds;
-    float avgDeltaC;
-    AnalysisEventType type;
-};
+#include "AnalysisEngine.h"
 
 class Analysis {
 public:
