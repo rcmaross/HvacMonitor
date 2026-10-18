@@ -1,10 +1,12 @@
 #include "UIManager.h"
+#include "BuildInfo.h"
 #include "UIConfig.h"
 
 #include "StatusUI.h"
 #include "AnalysisUI.h"
 #include "SettingsUI.h"
 #include "NetworkUI.h"
+#include "FirmwareUI.h"
 
 UIManager::UIManager(Status& status, Network& network, Settings& settings, Clock& clock, Analysis& analysis)
     : _status(status), _network(network), _settings(settings), _clock(clock), _analysis(analysis)
@@ -96,6 +98,16 @@ void UIManager::createHeader()
     lv_obj_set_style_pad_all(_header, 0, 0);
     lv_obj_set_scrollable(_header, false);
 
+    // Base firmware version (omit development SHA suffix).
+    String baseVersion = BuildInfo::version();
+    int suffix = baseVersion.indexOf("-dev.");
+    if (suffix >= 0) baseVersion.remove(suffix);
+    _versionLabel = lv_label_create(_header);
+    lv_label_set_text(_versionLabel, baseVersion.c_str());
+    lv_obj_set_style_text_font(_versionLabel, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(_versionLabel, lv_color_hex(0xF2F4F5), 0);
+    lv_obj_align(_versionLabel, LV_ALIGN_LEFT_MID, 8, 0);
+
     //
     // Wi-Fi signal strength
     //
@@ -112,7 +124,7 @@ void UIManager::createHeader()
 
         lv_obj_set_pos(
             _wifiBars[i],
-            8 + i * 6,
+            229 + i * 6,
             27 - i * 4
         );
 
@@ -267,38 +279,45 @@ void UIManager::createNavigation()
     _analysisButton = lv_button_create(_tabBar);
     _settingsButton = lv_button_create(_tabBar);
     _networkButton = lv_button_create(_tabBar);
+    _firmwareButton = lv_button_create(_tabBar);
 
     lv_obj_set_flex_grow(_statusButton, 1);
     lv_obj_set_flex_grow(_analysisButton, 1);
     lv_obj_set_flex_grow(_settingsButton, 1);
     lv_obj_set_flex_grow(_networkButton, 1);
+    lv_obj_set_flex_grow(_firmwareButton, 1);
 
     lv_obj_set_height(_statusButton, LV_PCT(100));
     lv_obj_set_height(_analysisButton, LV_PCT(100));
     lv_obj_set_height(_settingsButton, LV_PCT(100));
     lv_obj_set_height(_networkButton, LV_PCT(100));
+    lv_obj_set_height(_firmwareButton, LV_PCT(100));
 
     lv_obj_set_style_radius(_statusButton, 0, 0);
     lv_obj_set_style_radius(_analysisButton, 0, 0);
     lv_obj_set_style_radius(_settingsButton, 0, 0);
     lv_obj_set_style_radius(_networkButton, 0, 0);
+    lv_obj_set_style_radius(_firmwareButton, 0, 0);
 
     lv_obj_t* label;
 
     label = lv_label_create(_statusButton);
-    lv_label_set_text(label, "STATUS");
+    lv_label_set_text(label, LV_SYMBOL_HOME);
     lv_obj_center(label);
 
     label = lv_label_create(_analysisButton);
-    lv_label_set_text(label, "ANALYSIS");
+    lv_label_set_text(label, LV_SYMBOL_CHARGE);
     lv_obj_center(label);
 
     label = lv_label_create(_settingsButton);
-    lv_label_set_text(label, "SETTINGS");
+    lv_label_set_text(label, LV_SYMBOL_SETTINGS);
     lv_obj_center(label);
 
     label = lv_label_create(_networkButton);
-    lv_label_set_text(label, "NETWORK");
+    lv_label_set_text(label, LV_SYMBOL_WIFI);
+    lv_obj_center(label);
+    label = lv_label_create(_firmwareButton);
+    lv_label_set_text(label, LV_SYMBOL_DOWNLOAD);
     lv_obj_center(label);
 
     lv_obj_add_event_cb(
@@ -317,6 +336,7 @@ void UIManager::createNavigation()
         this
     );
 
+    lv_obj_add_event_cb(_firmwareButton, firmwareButtonClicked, LV_EVENT_CLICKED, this);
     lv_obj_add_event_cb(
         _networkButton,
         networkButtonClicked,
@@ -358,6 +378,9 @@ void UIManager::showScreen(Screen screen)
 
         case Screen::Network:
             _currentUI = new NetworkUI(_contentArea, _network);
+            break;
+        case Screen::Firmware:
+            _currentUI = new FirmwareUI(_contentArea);
             break;
     }
 
@@ -407,4 +430,9 @@ void UIManager::networkButtonClicked(lv_event_t* event)
 void UIManager::analysisButtonClicked(lv_event_t* event) {
     auto* ui = static_cast<UIManager*>(lv_event_get_user_data(event));
     ui->showScreen(Screen::Analysis);
+}
+
+void UIManager::firmwareButtonClicked(lv_event_t* event) {
+    auto* ui = static_cast<UIManager*>(lv_event_get_user_data(event));
+    ui->showScreen(Screen::Firmware);
 }

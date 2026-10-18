@@ -22,7 +22,8 @@ private:
         Status,
         Analysis,
         Settings,
-        Network
+        Network,
+        Firmware
     };
 
     Status& _status;
@@ -32,6 +33,7 @@ private:
     Analysis& _analysis;
     
     lv_obj_t* _header = nullptr;
+    lv_obj_t* _versionLabel = nullptr;
     lv_obj_t* _wifiBars[4] = {};
     lv_obj_t* _timeLabel = nullptr;
     lv_obj_t* _stateDot = nullptr;
@@ -44,6 +46,7 @@ private:
     lv_obj_t* _analysisButton = nullptr;
     lv_obj_t* _settingsButton = nullptr;
     lv_obj_t* _networkButton = nullptr;
+    lv_obj_t* _firmwareButton = nullptr;
 
     ScreenUI* _currentUI = nullptr;
 
@@ -60,4 +63,5 @@ private:
     static void analysisButtonClicked(lv_event_t* event);
     static void settingsButtonClicked(lv_event_t* event);
     static void networkButtonClicked(lv_event_t* event);
+    static void firmwareButtonClicked(lv_event_t* event);
 };

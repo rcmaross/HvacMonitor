@@ -21,11 +21,12 @@ void Analysis::begin() {
     Preferences p;
     p.begin("analysis", true);
     _auto = p.getBool("auto", true);
-    _low = p.getInt("low", 7);
-    _high = p.getInt("high", 17);
+    _low = p.getInt("low", 6);
+    _high = p.getInt("high", 40);
     _ignoreOff = p.getInt("ignore", 10);
     p.end();
-    if (_low < 0 || _high > 100 || _low >= _high) { _low = 7; _high = 17; }
+    if (_low != 6) _low = 6;
+    if (_high <= _low || _high > 100) _high = 40;
     if (_ignoreOff < 0 || _ignoreOff > 120 || _ignoreOff % 10) _ignoreOff = 10;
     _events = (AnalysisEvent*)heap_caps_malloc(CAPACITY * sizeof(AnalysisEvent), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     if (!_events) _events = (AnalysisEvent*)malloc(CAPACITY * sizeof(AnalysisEvent));
@@ -43,17 +44,12 @@ void Analysis::begin() {
 
 void Analysis::setAuto(bool enabled) { _auto = enabled; save(); recalculate(); }
 bool Analysis::setThresholds(int low, int high) {
-    if (_auto || low < 0 || high > 100 || low >= high) return false;
-    _low = low; _high = high; save(); return true;
+    if (_auto || low != 6 || high <= low || high > 100) return false;
+    _high = high; save(); recalculate(); return true;
 }
 bool Analysis::setStrengthThresholds(int low, int high) {
-    if (low < 0 || high > 100 || low >= high) return false;
-    // The public strength scale maps to the current 0..50 C delta range.
-    // Keep the conversion here so the UI remains independent of the algorithm.
-    int internalLow = (low + 1) / 2;
-    int internalHigh = (high + 1) / 2;
-    if (internalLow >= internalHigh) return false;
-    return setThresholds(internalLow, internalHigh);
+    // Values are 30-second ticks (0..100 = 0..50 minutes).
+    return setThresholds(low, high);
 }
 void Analysis::setIgnoreOff(int seconds) {
     if (seconds < 0 || seconds > 120 || seconds % 10) return;
@@ -135,71 +131,31 @@ void Analysis::sample(const Status& status) {
 }
 
 void Analysis::calibrate() {
-    float centers[3] = {}, minimum = INFINITY, maximum = -INFINITY;
-    size_t count = 0;
-    uint32_t now = (uint32_t)time(nullptr);
-    uint32_t earliest = now > 86400 ? now - 86400 : 0;
-    for (size_t i = 0; i < _count; ++i) {
-        auto& e = at(i);
-        if (e.type != AnalysisEventType::HEATING || e.start + e.seconds <= earliest) continue;
-        minimum = fminf(minimum, e.avgDeltaC);
-        maximum = fmaxf(maximum, e.avgDeltaC);
-        ++count;
-    }
-    if (count < 6 || maximum - minimum < 4) return;
-    centers[0] = minimum; centers[1] = (minimum + maximum) / 2; centers[2] = maximum;
-    for (int iteration = 0; iteration < 20; ++iteration) {
-        double sum[3] = {}, weight[3] = {};
-        for (size_t i = 0; i < _count; ++i) {
-            auto& e = at(i);
-            if (e.type != AnalysisEventType::HEATING) continue;
-            int best = 0;
-            for (int k = 1; k < 3; ++k)
-                if (fabsf(e.avgDeltaC - centers[k]) < fabsf(e.avgDeltaC - centers[best])) best = k;
-            sum[best] += e.avgDeltaC * e.seconds;
-            weight[best] += e.seconds;
-        }
-        if (!weight[0] || !weight[1] || !weight[2]) return;
-        for (int k = 0; k < 3; ++k) centers[k] = sum[k] / weight[k];
-    }
-    int low = roundf((centers[0] + centers[1]) / 2);
-    int high = roundf((centers[1] + centers[2]) / 2);
-    if (low >= 0 && high <= 100 && high - low >= 2) { _low = low; _high = high; }
+    // The engine operates on a chronological snapshot of the ring buffer.
+    if (!_events || !_count) return;
+    AnalysisEvent* ordered = (AnalysisEvent*)malloc(_count * sizeof(AnalysisEvent));
+    if (!ordered) return;
+    for (size_t i = 0; i < _count; ++i) ordered[i] = at(i);
+    AnalysisEngine::calibrate(ordered, _count, (uint32_t)_ignoreOff, _high);
+    free(ordered);
 }
 
 void Analysis::recalculate() {
     if (_loading || !_events) return;
     uint32_t now = (uint32_t)time(nullptr);
     if (now < 1700000000) return;
-    uint32_t windowStart = now > 86400 ? now - 86400 : 0;
     if (_auto) calibrate();
-    double off = 0, low = 0, medium = 0, high = 0;
-    for (size_t i = 0; i < _count; ++i) {
-        const auto& e = at(i);
-        uint32_t start = e.start > windowStart ? e.start : windowStart;
-        uint32_t end = e.start + e.seconds;
-        if (end > now) end = now;
-        if (end <= start) continue;
-        bool heating = e.type == AnalysisEventType::HEATING;
-        float avg = e.avgDeltaC;
-        if (!heating && e.seconds <= (uint32_t)_ignoreOff && i > 0 && i + 1 < _count &&
-            at(i - 1).type == AnalysisEventType::HEATING &&
-            at(i + 1).type == AnalysisEventType::HEATING) {
-            heating = true;
-            avg = (at(i - 1).avgDeltaC + at(i + 1).avgDeltaC) / 2;
-        }
-        if (!heating) off += end - start;
-        else if (avg <= _low) low += end - start;
-        else if (avg <= _high) medium += end - start;
-        else high += end - start;
-    }
-    double on = low + medium + high;
-    double total = off + on;
-    _off = total ? 100 * off / total : 0;
-    _on = total ? 100 * on / total : 0;
-    _lowPct = on ? 100 * low / on : 0;
-    _mediumPct = on ? 100 * medium / on : 0;
-    _highPct = on ? 100 * high / on : 0;
+    AnalysisEvent* ordered = (AnalysisEvent*)malloc(_count * sizeof(AnalysisEvent));
+    if (!ordered) return;
+    for (size_t i = 0; i < _count; ++i) ordered[i] = at(i);
+    AnalysisTotals totals = AnalysisEngine::calculate(
+        ordered, _count, now - 86400, now, _high, (uint32_t)_ignoreOff);
+    free(ordered);
+    _off = totals.offPercent;
+    _on = totals.onPercent;
+    _lowPct = totals.lowPercent;
+    _mediumPct = totals.maintPercent;
+    _highPct = totals.highPercent;
 }
 String Analysis::json() const {
     String s = "{";

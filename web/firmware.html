@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html><head><meta name="viewport" content="width=device-width, initial-scale=1">
+<style>body{background:#101418;color:#f2f4f5;font:16px Arial,sans-serif;padding:20px}
+dt{color:#aeb7bf;margin-top:16px}dd{margin:5px 0;overflow-wrap:anywhere}</style></head>
+<body><h2>Installed Firmware</h2><dl id="info">Loading...</dl>
+<script>
+fetch('/api/firmware').then(r=>{if(!r.ok)throw Error(r.status);return r.json()})
+.then(d=>{const el=document.getElementById('info');el.textContent='';
+for(const [label,key] of [['Version','version'],['Git commit','commit'],['Build type','type'],['Build date','date']]){
+const dt=document.createElement('dt');dt.textContent=label;el.appendChild(dt);
+const dd=document.createElement('dd');dd.textContent=d[key];el.appendChild(dd);
+}}).catch(()=>document.getElementById('info').textContent='Firmware information unavailable');
+</script></body></html>
