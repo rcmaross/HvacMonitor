@@ -22,10 +22,10 @@ public:
     static bool validHighTicks(int ticks) { return ticks > 6 && ticks <= 100; }
     static uint32_t secondsFromTicks(int ticks) { return ticks > 0 ? (uint32_t)ticks * 30u : 0u; }
     static bool canBridgeOff(uint32_t gap, uint32_t ignoreOff) { return gap <= ignoreOff; }
-    enum class Level : uint8_t { MAINT, LOW, HIGH };
+    enum class Level : uint8_t { Maint, Low, High };
     static Level classify(uint32_t duration, int highTicks) {
-        if (duration <= MAINT_SECONDS) return Level::MAINT;
-        return duration >= secondsFromTicks(highTicks) ? Level::HIGH : Level::LOW;
+        if (duration <= MAINT_SECONDS) return Level::Maint;
+        return duration >= secondsFromTicks(highTicks) ? Level::High : Level::Low;
     }
     // Events are in chronological order. The last cycle may still be in progress.
     static AnalysisTotals calculate(const AnalysisEvent* events, size_t count,
