@@ -62,7 +62,7 @@ private:
     void finish(uint32_t end, const char* reason);
     void feed(uint32_t timestamp, CompressorState state, float delta);
     void calibrate();
-    int _stampColumn = -1, _largeColumn = -1, _smallColumn = -1, _stateColumn = -1;
+    int _stampColumn = -1, _largeColumn = -1, _smallColumn = -1, _outdoorColumn = -1, _stateColumn = -1;
     bool _headerChecked = false, _headerValid = false;
     void parseHistoryLine(const String& line);
     void resetHistoryHeader();
