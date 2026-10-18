@@ -33,16 +33,33 @@ jobs:
         run: |
           ELF=".pio/build/m5stack-core2/firmware.elf"
           SIZE="$HOME/.platformio/packages/toolchain-xtensa-esp32/bin/xtensa-esp32-elf-size"
-          echo "## ESP32 static memory sections" >> "$GITHUB_STEP_SUMMARY"
-          echo 'These are linker-assigned static section sizes, not runtime free heap or peak usage.' >> "$GITHUB_STEP_SUMMARY"
-          echo 'DRAM includes initialized and zero-initialized static data; IRAM is instruction memory.' >> "$GITHUB_STEP_SUMMARY"
-          echo 'External PSRAM allocated dynamically is not reflected as runtime usage here.' >> "$GITHUB_STEP_SUMMARY"
-          echo '### Allocated sections (bytes)' >> "$GITHUB_STEP_SUMMARY"
-          echo '~~~text' >> "$GITHUB_STEP_SUMMARY"
-          "$SIZE" -A "$ELF" | tee /tmp/esp32-sections.txt
-          grep -E '^\.(dram0|iram0|flash|ext_ram|noinit)' /tmp/esp32-sections.txt >> "$GITHUB_STEP_SUMMARY" || true
-          echo '~~~' >> "$GITHUB_STEP_SUMMARY"
-          echo '### Total ELF sections' >> "$GITHUB_STEP_SUMMARY"
-          echo '~~~text' >> "$GITHUB_STEP_SUMMARY"
-          "$SIZE" "$ELF" | tee -a "$GITHUB_STEP_SUMMARY"
-          echo '~~~' >> "$GITHUB_STEP_SUMMARY"
+          "$SIZE" -A "$ELF" > /tmp/esp32-sections.txt
+          python - <<'PY'
+          import re
+          from pathlib import Path
+          sections = {}
+          for line in Path('/tmp/esp32-sections.txt').read_text().splitlines():
+              match = re.match(r'^([^\\s]+)\\s+(\\d+)\\s+(?:0x[0-9a-fA-F]+|\\d+)\\s*$', line)
+              if match:
+                  sections[match.group(1)] = int(match.group(2))
+          groups = {
+              'Internal DRAM (.dram0.*)': '.dram0.',
+              'Instruction RAM (.iram0.*)': '.iram0.',
+              'Flash code (.flash.text*)': '.flash.text',
+              'Flash constants (.flash.rodata*)': '.flash.rodata',
+              'External RAM (.ext_ram*)': '.ext_ram',
+          }
+          rows = [(name, sum(size for section, size in sections.items() if section.startswith(prefix)))
+                  for name, prefix in groups.items()]
+          report = ['## ESP32 static memory summary', '',
+                    '| Region | Bytes | KiB |', '|---|---:|---:|']
+          for name, size in rows:
+              report.append(f'| {name} | {size:,} | {size / 1024:,.1f} |')
+          report += ['', 'Linker-assigned static sections only; does not measure runtime heap,',
+                     'stack usage, or dynamically allocated PSRAM.']
+          output = '\\n'.join(report) + '\\n'
+          print(output)
+          import os
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
+              f.write(output)
+          PY
