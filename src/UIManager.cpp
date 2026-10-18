@@ -1,4 +1,5 @@
 #include "UIManager.h"
+#include "BuildInfo.h"
 #include "UIConfig.h"
 
 #include "StatusUI.h"
@@ -97,6 +98,16 @@ void UIManager::createHeader()
     lv_obj_set_style_pad_all(_header, 0, 0);
     lv_obj_set_scrollable(_header, false);
 
+    // Base firmware version (omit development SHA suffix).
+    String baseVersion = BuildInfo::version();
+    int suffix = baseVersion.indexOf("-dev.");
+    if (suffix >= 0) baseVersion.remove(suffix);
+    _versionLabel = lv_label_create(_header);
+    lv_label_set_text(_versionLabel, baseVersion.c_str());
+    lv_obj_set_style_text_font(_versionLabel, &lv_font_montserrat_14, 0);
+    lv_obj_set_style_text_color(_versionLabel, lv_color_hex(0xF2F4F5), 0);
+    lv_obj_align(_versionLabel, LV_ALIGN_LEFT_MID, 8, 0);
+
     //
     // Wi-Fi signal strength
     //
@@ -113,7 +124,7 @@ void UIManager::createHeader()
 
         lv_obj_set_pos(
             _wifiBars[i],
-            8 + i * 6,
+            229 + i * 6,
             27 - i * 4
         );
 
