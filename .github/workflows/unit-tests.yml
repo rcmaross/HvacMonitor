@@ -35,13 +35,17 @@ jobs:
           SIZE="$HOME/.platformio/packages/toolchain-xtensa-esp32/bin/xtensa-esp32-elf-size"
           "$SIZE" -A "$ELF" > /tmp/esp32-sections.txt
           python - <<'PY'
-          import re
           from pathlib import Path
           sections = {}
           for line in Path('/tmp/esp32-sections.txt').read_text().splitlines():
-              match = re.match(r'^([^\\s]+)\\s+(\\d+)\\s+(?:0x[0-9a-fA-F]+|\\d+)\\s*$', line)
-              if match:
-                  sections[match.group(1)] = int(match.group(2))
+              fields = line.split()
+              if len(fields) >= 3 and fields[0].startswith('.'):
+                  try:
+                      sections[fields[0]] = int(fields[1])
+                  except ValueError:
+                      continue
+          if not sections.get('.dram0.data') and not sections.get('.dram0.bss'):
+              raise SystemExit('ERROR: no internal DRAM sections found in firmware ELF')
           groups = {
               'Internal DRAM (.dram0.*)': '.dram0.',
               'Instruction RAM (.iram0.*)': '.iram0.',
@@ -57,7 +61,7 @@ jobs:
               report.append(f'| {name} | {size:,} | {size / 1024:,.1f} |')
           report += ['', 'Linker-assigned static sections only; does not measure runtime heap,',
                      'stack usage, or dynamically allocated PSRAM.']
-          output = '\\n'.join(report) + '\\n'
+          output = '\n'.join(report) + '\n'
           print(output)
           import os
           with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
