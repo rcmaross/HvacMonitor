@@ -33,7 +33,7 @@ void Status::sampleCompressor()
     _smallSlopeCPerMin = NAN;
     _compressorState = CompressorState::UNKNOWN;
 
-    if (isfinite(largeC) && isfinite(smallC) && _sampleCount >= SLOPE_SAMPLES)
+    if (isfinite(largeC) && isfinite(smallC) && isfinite(_outdoorTemperature) && _sampleCount >= SLOPE_SAMPLES)
     {
         const TemperatureSample& old = _samples[_sampleIndex];
         const float elapsedMinutes = (nowMs - old.timestampMs) / 60000.0f;
@@ -47,14 +47,14 @@ void Status::sampleCompressor()
             constexpr float START_SLOPE_DEADBAND = 0.3f;
             constexpr float SLOPE_DEADBAND = 0.2f;
             constexpr float INIT_DELTA_C = 3.0f;
-            constexpr float PLATEAU_DELTA_C = 11.0f;
+            constexpr float PLATEAU_DELTA_C = 20.0f;
             constexpr float DOWNSTAGE_DELTA_SLOPE = 3.0f;
 
             if (_largeSlopeCPerMin > START_SLOPE_DEADBAND ||
                 (_largeSlopeCPerMin > SLOPE_DEADBAND && deltaC >= INIT_DELTA_C))
                 _compressorState = CompressorState::HEATING;
             else if (fabsf(_largeSlopeCPerMin) <= SLOPE_DEADBAND &&
-                     deltaC > PLATEAU_DELTA_C)
+                     (largeC - _outdoorTemperature) >= PLATEAU_DELTA_C)
                 _compressorState = CompressorState::PLATEAU;
             else if (_largeSlopeCPerMin < -SLOPE_DEADBAND &&
                      deltaSlope > DOWNSTAGE_DELTA_SLOPE)
