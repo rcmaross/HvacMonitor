@@ -21,11 +21,12 @@ void Analysis::begin() {
     Preferences p;
     p.begin("analysis", true);
     _auto = p.getBool("auto", true);
-    _low = p.getInt("low", 7);
-    _high = p.getInt("high", 17);
+    _low = p.getInt("low", 6);
+    _high = p.getInt("high", 40);
     _ignoreOff = p.getInt("ignore", 10);
     p.end();
-    if (_low < 0 || _high > 100 || _low >= _high) { _low = 7; _high = 17; }
+    if (_low != 6) _low = 6;
+    if (_high <= _low || _high > 100) _high = 40;
     if (_ignoreOff < 0 || _ignoreOff > 120 || _ignoreOff % 10) _ignoreOff = 10;
     _events = (AnalysisEvent*)heap_caps_malloc(CAPACITY * sizeof(AnalysisEvent), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     if (!_events) _events = (AnalysisEvent*)malloc(CAPACITY * sizeof(AnalysisEvent));
@@ -43,17 +44,12 @@ void Analysis::begin() {
 
 void Analysis::setAuto(bool enabled) { _auto = enabled; save(); recalculate(); }
 bool Analysis::setThresholds(int low, int high) {
-    if (_auto || low < 0 || high > 100 || low >= high) return false;
-    _low = low; _high = high; save(); return true;
+    if (_auto || low != 6 || high <= low || high > 100) return false;
+    _high = high; save(); recalculate(); return true;
 }
 bool Analysis::setStrengthThresholds(int low, int high) {
-    if (low < 0 || high > 100 || low >= high) return false;
-    // The public strength scale maps to the current 0..50 C delta range.
-    // Keep the conversion here so the UI remains independent of the algorithm.
-    int internalLow = (low + 1) / 2;
-    int internalHigh = (high + 1) / 2;
-    if (internalLow >= internalHigh) return false;
-    return setThresholds(internalLow, internalHigh);
+    // Values are 30-second ticks (0..100 = 0..50 minutes).
+    return setThresholds(low, high);
 }
 void Analysis::setIgnoreOff(int seconds) {
     if (seconds < 0 || seconds > 120 || seconds % 10) return;
@@ -135,36 +131,48 @@ void Analysis::sample(const Status& status) {
 }
 
 void Analysis::calibrate() {
-    float centers[3] = {}, minimum = INFINITY, maximum = -INFINITY;
-    size_t count = 0;
-    uint32_t now = (uint32_t)time(nullptr);
-    uint32_t earliest = now > 86400 ? now - 86400 : 0;
-    for (size_t i = 0; i < _count; ++i) {
-        auto& e = at(i);
-        if (e.type != AnalysisEventType::HEATING || e.start + e.seconds <= earliest) continue;
-        minimum = fminf(minimum, e.avgDeltaC);
-        maximum = fmaxf(maximum, e.avgDeltaC);
-        ++count;
-    }
-    if (count < 6 || maximum - minimum < 4) return;
-    centers[0] = minimum; centers[1] = (minimum + maximum) / 2; centers[2] = maximum;
-    for (int iteration = 0; iteration < 20; ++iteration) {
-        double sum[3] = {}, weight[3] = {};
-        for (size_t i = 0; i < _count; ++i) {
-            auto& e = at(i);
-            if (e.type != AnalysisEventType::HEATING) continue;
-            int best = 0;
-            for (int k = 1; k < 3; ++k)
-                if (fabsf(e.avgDeltaC - centers[k]) < fabsf(e.avgDeltaC - centers[best])) best = k;
-            sum[best] += e.avgDeltaC * e.seconds;
-            weight[best] += e.seconds;
+    // Learn the LOW/HIGH boundary from completed heating-cycle durations.
+    // One-minute event fragments are reconstructed before clustering.
+    uint32_t durations[256] = {};
+    size_t n = 0;
+    uint32_t start = 0, end = 0;
+    bool active = false;
+    const uint32_t bridge = (uint32_t)_ignoreOff;
+    auto collect = [&]() {
+        if (active && end > start && n < 256) {
+            uint32_t seconds = end - start;
+            if (seconds > 180) durations[n++] = seconds;
         }
-        if (!weight[0] || !weight[1] || !weight[2]) return;
-        for (int k = 0; k < 3; ++k) centers[k] = sum[k] / weight[k];
+        active = false;
+    };
+    for (size_t i = 0; i < _count; ++i) {
+        const auto& ev = at(i);
+        if (ev.type != AnalysisEventType::HEATING) continue;
+        if (!active || ev.start > end + bridge) {
+            collect();
+            start = ev.start; end = ev.start + ev.seconds; active = true;
+        } else if (ev.start + ev.seconds > end) end = ev.start + ev.seconds;
     }
-    int low = roundf((centers[0] + centers[1]) / 2);
-    int high = roundf((centers[1] + centers[2]) / 2);
-    if (low >= 0 && high <= 100 && high - low >= 2) { _low = low; _high = high; }
+    collect();
+    if (n < 4) return;
+    // Two duration clusters; cap the learned threshold at 50 minutes.
+    float shortCenter = 600, longCenter = 2100;
+    for (int iteration = 0; iteration < 16; ++iteration) {
+        double sumShort = 0, sumLong = 0;
+        int countShort = 0, countLong = 0;
+        for (size_t i = 0; i < n; ++i) {
+            if (fabsf(durations[i] - shortCenter) <= fabsf(durations[i] - longCenter)) {
+                sumShort += durations[i]; ++countShort;
+            } else { sumLong += durations[i]; ++countLong; }
+        }
+        if (!countShort || !countLong) return;
+        shortCenter = sumShort / countShort;
+        longCenter = sumLong / countLong;
+    }
+    if (longCenter - shortCenter < 300) return;
+    int ticks = (int)roundf((shortCenter + longCenter) / 60.0f);
+    if (ticks > 100) ticks = 100;
+    if (ticks > 6) _high = ticks;
 }
 
 void Analysis::recalculate() {
@@ -173,32 +181,46 @@ void Analysis::recalculate() {
     if (now < 1700000000) return;
     uint32_t windowStart = now > 86400 ? now - 86400 : 0;
     if (_auto) calibrate();
-    double off = 0, low = 0, medium = 0, high = 0;
-    for (size_t i = 0; i < _count; ++i) {
-        const auto& e = at(i);
-        uint32_t start = e.start > windowStart ? e.start : windowStart;
-        uint32_t end = e.start + e.seconds;
-        if (end > now) end = now;
-        if (end <= start) continue;
-        bool heating = e.type == AnalysisEventType::HEATING;
-        float avg = e.avgDeltaC;
-        if (!heating && e.seconds <= (uint32_t)_ignoreOff && i > 0 && i + 1 < _count &&
-            at(i - 1).type == AnalysisEventType::HEATING &&
-            at(i + 1).type == AnalysisEventType::HEATING) {
-            heating = true;
-            avg = (at(i - 1).avgDeltaC + at(i + 1).avgDeltaC) / 2;
+    double off = 0, maint = 0, low = 0, high = 0;
+    uint32_t cycleStart = 0, cycleEnd = 0;
+    bool active = false;
+    auto addCycle = [&]() {
+        if (!active || cycleEnd <= cycleStart) return;
+        uint32_t start = cycleStart > windowStart ? cycleStart : windowStart;
+        uint32_t end = cycleEnd < now ? cycleEnd : now;
+        if (end > start) {
+            uint32_t seconds = cycleEnd - cycleStart;
+            if (seconds <= 180) maint += end - start;
+            else if (seconds >= (uint32_t)_high * 30) high += end - start;
+            else low += end - start;
         }
-        if (!heating) off += end - start;
-        else if (avg <= _low) low += end - start;
-        else if (avg <= _high) medium += end - start;
-        else high += end - start;
+        active = false;
+    };
+    for (size_t i = 0; i < _count; ++i) {
+        const auto& ev = at(i);
+        uint32_t evEnd = ev.start + ev.seconds;
+        if (ev.type == AnalysisEventType::HEATING) {
+            if (!active || ev.start > cycleEnd + (uint32_t)_ignoreOff) {
+                addCycle();
+                cycleStart = ev.start;
+                cycleEnd = evEnd;
+                active = true;
+            } else if (evEnd > cycleEnd) cycleEnd = evEnd;
+        } else if (ev.seconds > (uint32_t)_ignoreOff) {
+            addCycle();
+        }
     }
-    double on = low + medium + high;
+    addCycle();
+    // OFF is the remainder of the observed 24-hour window.
+    uint32_t first = now > 86400 ? windowStart : 0;
+    double observed = now - first;
+    double on = maint + low + high;
+    off = observed > on ? observed - on : 0;
     double total = off + on;
     _off = total ? 100 * off / total : 0;
     _on = total ? 100 * on / total : 0;
     _lowPct = on ? 100 * low / on : 0;
-    _mediumPct = on ? 100 * medium / on : 0;
+    _mediumPct = on ? 100 * maint / on : 0;
     _highPct = on ? 100 * high / on : 0;
 }
 String Analysis::json() const {
