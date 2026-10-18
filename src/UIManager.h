@@ -33,6 +33,7 @@ private:
     Analysis& _analysis;
     
     lv_obj_t* _header = nullptr;
+    lv_obj_t* _versionLabel = nullptr;
     lv_obj_t* _wifiBars[4] = {};
     lv_obj_t* _timeLabel = nullptr;
     lv_obj_t* _stateDot = nullptr;
