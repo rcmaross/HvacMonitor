@@ -15,7 +15,7 @@ void test_boundaries() {
 }
 void test_empty() {
     AnalysisTotals t = AnalysisEngine::calculate(nullptr,0,0,3600,40,10);
-    TEST_ASSERT_EQUAL_DOUBLE(0,t.on);
+    TEST_ASSERT_EQUAL_UINT64(0,t.on);
 }
 void test_cycle_reconstruction() {
     const AnalysisEvent events[] = {
@@ -26,10 +26,10 @@ void test_cycle_reconstruction() {
         {1310,100,0,AnalysisEventType::OFF}
     };
     AnalysisTotals t = AnalysisEngine::calculate(events,5,0,3600,40,10);
-    TEST_ASSERT_EQUAL_DOUBLE(1210,t.high);
-    TEST_ASSERT_EQUAL_DOUBLE(0,t.low);
-    TEST_ASSERT_EQUAL_DOUBLE(0,t.maint);
-    TEST_ASSERT_EQUAL_DOUBLE(1210,t.on);
+    TEST_ASSERT_EQUAL_UINT64(1210,t.high);
+    TEST_ASSERT_EQUAL_UINT64(0,t.low);
+    TEST_ASSERT_EQUAL_UINT64(0,t.maint);
+    TEST_ASSERT_EQUAL_UINT64(1210,t.on);
 }
 void test_long_off_splits_cycles() {
     const AnalysisEvent events[] = {
@@ -38,10 +38,10 @@ void test_long_off_splits_cycles() {
         {180,600,0,AnalysisEventType::HEATING}
     };
     AnalysisTotals t = AnalysisEngine::calculate(events,3,0,3600,40,10);
-    TEST_ASSERT_EQUAL_DOUBLE(120,t.maint);
-    TEST_ASSERT_EQUAL_DOUBLE(600,t.low);
-    TEST_ASSERT_EQUAL_DOUBLE(720,t.on);
-    TEST_ASSERT_EQUAL_DOUBLE(20,t.onPercent);
+    TEST_ASSERT_EQUAL_UINT64(120,t.maint);
+    TEST_ASSERT_EQUAL_UINT64(600,t.low);
+    TEST_ASSERT_EQUAL_UINT64(720,t.on);
+    TEST_ASSERT_FLOAT_WITHIN(0.001f,20.0f,t.onPercent);
 }
 void test_calibration() {
     const AnalysisEvent events[] = {
