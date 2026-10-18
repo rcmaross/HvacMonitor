@@ -131,97 +131,31 @@ void Analysis::sample(const Status& status) {
 }
 
 void Analysis::calibrate() {
-    // Learn the LOW/HIGH boundary from completed heating-cycle durations.
-    // One-minute event fragments are reconstructed before clustering.
-    uint32_t durations[256] = {};
-    size_t n = 0;
-    uint32_t start = 0, end = 0;
-    bool active = false;
-    const uint32_t bridge = (uint32_t)_ignoreOff;
-    auto collect = [&]() {
-        if (active && end > start && n < 256) {
-            uint32_t seconds = end - start;
-            if (seconds > 180) durations[n++] = seconds;
-        }
-        active = false;
-    };
-    for (size_t i = 0; i < _count; ++i) {
-        const auto& ev = at(i);
-        if (ev.type != AnalysisEventType::HEATING) continue;
-        if (!active || ev.start > end + bridge) {
-            collect();
-            start = ev.start; end = ev.start + ev.seconds; active = true;
-        } else if (ev.start + ev.seconds > end) end = ev.start + ev.seconds;
-    }
-    collect();
-    if (n < 4) return;
-    // Two duration clusters; cap the learned threshold at 50 minutes.
-    float shortCenter = 600, longCenter = 2100;
-    for (int iteration = 0; iteration < 16; ++iteration) {
-        double sumShort = 0, sumLong = 0;
-        int countShort = 0, countLong = 0;
-        for (size_t i = 0; i < n; ++i) {
-            if (fabsf(durations[i] - shortCenter) <= fabsf(durations[i] - longCenter)) {
-                sumShort += durations[i]; ++countShort;
-            } else { sumLong += durations[i]; ++countLong; }
-        }
-        if (!countShort || !countLong) return;
-        shortCenter = sumShort / countShort;
-        longCenter = sumLong / countLong;
-    }
-    if (longCenter - shortCenter < 300) return;
-    int ticks = (int)roundf((shortCenter + longCenter) / 60.0f);
-    if (ticks > 100) ticks = 100;
-    if (ticks > 6) _high = ticks;
+    // The engine operates on a chronological snapshot of the ring buffer.
+    if (!_events || !_count) return;
+    AnalysisEvent* ordered = (AnalysisEvent*)malloc(_count * sizeof(AnalysisEvent));
+    if (!ordered) return;
+    for (size_t i = 0; i < _count; ++i) ordered[i] = at(i);
+    AnalysisEngine::calibrate(ordered, _count, (uint32_t)_ignoreOff, _high);
+    free(ordered);
 }
 
 void Analysis::recalculate() {
     if (_loading || !_events) return;
     uint32_t now = (uint32_t)time(nullptr);
     if (now < 1700000000) return;
-    uint32_t windowStart = now > 86400 ? now - 86400 : 0;
     if (_auto) calibrate();
-    double off = 0, maint = 0, low = 0, high = 0;
-    uint32_t cycleStart = 0, cycleEnd = 0;
-    bool active = false;
-    auto addCycle = [&]() {
-        if (!active || cycleEnd <= cycleStart) return;
-        uint32_t start = cycleStart > windowStart ? cycleStart : windowStart;
-        uint32_t end = cycleEnd < now ? cycleEnd : now;
-        if (end > start) {
-            uint32_t seconds = cycleEnd - cycleStart;
-            if (seconds <= 180) maint += end - start;
-            else if (seconds >= (uint32_t)_high * 30) high += end - start;
-            else low += end - start;
-        }
-        active = false;
-    };
-    for (size_t i = 0; i < _count; ++i) {
-        const auto& ev = at(i);
-        uint32_t evEnd = ev.start + ev.seconds;
-        if (ev.type == AnalysisEventType::HEATING) {
-            if (!active || ev.start > cycleEnd + (uint32_t)_ignoreOff) {
-                addCycle();
-                cycleStart = ev.start;
-                cycleEnd = evEnd;
-                active = true;
-            } else if (evEnd > cycleEnd) cycleEnd = evEnd;
-        } else if (ev.seconds > (uint32_t)_ignoreOff) {
-            addCycle();
-        }
-    }
-    addCycle();
-    // OFF is the remainder of the observed 24-hour window.
-    uint32_t first = now > 86400 ? windowStart : 0;
-    double observed = now - first;
-    double on = maint + low + high;
-    off = observed > on ? observed - on : 0;
-    double total = off + on;
-    _off = total ? 100 * off / total : 0;
-    _on = total ? 100 * on / total : 0;
-    _lowPct = on ? 100 * low / on : 0;
-    _mediumPct = on ? 100 * maint / on : 0;
-    _highPct = on ? 100 * high / on : 0;
+    AnalysisEvent* ordered = (AnalysisEvent*)malloc(_count * sizeof(AnalysisEvent));
+    if (!ordered) return;
+    for (size_t i = 0; i < _count; ++i) ordered[i] = at(i);
+    AnalysisTotals totals = AnalysisEngine::calculate(
+        ordered, _count, now - 86400, now, _high, (uint32_t)_ignoreOff);
+    free(ordered);
+    _off = totals.offPercent;
+    _on = totals.onPercent;
+    _lowPct = totals.lowPercent;
+    _mediumPct = totals.maintPercent;
+    _highPct = totals.highPercent;
 }
 String Analysis::json() const {
     String s = "{";
