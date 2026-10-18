@@ -35,8 +35,8 @@ public:
     bool loading() const { return _loading; }
     bool autoMode() const { return _auto; }
     int low() const { return _low; }
-    int lowStrength() const { return _low * 2; }
-    int highStrength() const { return _high * 2; }
+    int lowStrength() const { return _low; }
+    int highStrength() const { return _high; }
     int high() const { return _high; }
     int ignoreOff() const { return _ignoreOff; }
     void setAuto(bool enabled);
@@ -50,7 +50,7 @@ private:
     AnalysisEvent* _events = nullptr;
     size_t _head = 0, _count = 0;
     bool _loading = false, _auto = true, _hasPrevious = false;
-    int _low = 7, _high = 17, _ignoreOff = 10;
+    int _low = 6, _high = 40, _ignoreOff = 10; // 30-second ticks: MAINT <=3m, HIGH >=20m
     float _off = 0, _on = 0, _lowPct = 0, _mediumPct = 0, _highPct = 0;
     uint32_t _cutoff = 0, _cursor = 0, _previousTime = 0, _lastRecalc = 0;
     AnalysisEventType _previousType = AnalysisEventType::OFF;
