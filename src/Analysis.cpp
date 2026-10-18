@@ -101,9 +101,6 @@ void Analysis::feed(uint32_t timestamp, CompressorState state, float delta) {
         } else if (type != _previousType) {
             finish(timestamp, "STATE_CHANGE");
             _hasPrevious = false;
-        } else if (timestamp >= _intervalStart + 60) {
-            finish(_intervalStart + 60, "MINUTE");
-            _hasPrevious = false;
         }
     }
     if (!_hasPrevious) {
@@ -117,6 +114,10 @@ void Analysis::feed(uint32_t timestamp, CompressorState state, float delta) {
     _previousType = type;
     _previousDelta = delta;
     _hasPrevious = true;
+    if (!_completed.valid && timestamp >= _intervalStart + 60) {
+        finish(timestamp + 10, "MINUTE");
+        _hasPrevious = false;
+    }
 }
 
 void Analysis::sample(const Status& status) {
@@ -125,11 +126,11 @@ void Analysis::sample(const Status& status) {
     if (now < 1700000000) return;
     float large = status.largePipeTemperature();
     float small = status.smallPipeTemperature();
-    if (!isfinite(large) || !isfinite(small)) return;
+    if (!isfinite(large) || !isfinite(small) || !isfinite(status.outdoorTemperature())) return;
     if (_loading) return; // History is still being replayed; CSV retains samples.
     if ((uint32_t)now <= _cutoff || (uint32_t)now <= _lastLiveTimestamp) return;
     _lastLiveTimestamp = (uint32_t)now;
-    feed((uint32_t)now, status.compressorState(), fabsf(large - small));
+    feed((uint32_t)now, status.compressorState(), fabsf(large - status.outdoorTemperature()));
 }
 
 void Analysis::calibrate() {
@@ -214,7 +215,7 @@ String Analysis::json() const {
 void Analysis::resetHistoryHeader() {
     _headerChecked = false;
     _headerValid = false;
-    _stampColumn = _largeColumn = _smallColumn = _stateColumn = -1;
+    _stampColumn = _largeColumn = _smallColumn = _outdoorColumn = _stateColumn = -1;
 }
 
 void Analysis::parseHistoryLine(const String& line) {
@@ -229,16 +230,17 @@ void Analysis::parseHistoryLine(const String& line) {
             if (field == "timestamp") _stampColumn = column;
             else if (field == "large") _largeColumn = column;
             else if (field == "small") _smallColumn = column;
+            else if (field == "outside") _outdoorColumn = column;
             else if (field == "compressor_state") _stateColumn = column;
             ++column;
             pos = next + 1;
         }
         _headerValid = _stampColumn >= 0 && _largeColumn >= 0 &&
-                       _smallColumn >= 0 && _stateColumn >= 0;
+                       _smallColumn >= 0 && _outdoorColumn >= 0 && _stateColumn >= 0;
         return;
     }
     if (!_headerValid) return;
-    String stamp, largeText, smallText, name;
+    String stamp, largeText, smallText, outdoorText, name;
     int col = 0, pos = 0;
     while (pos <= line.length()) {
         int next = line.indexOf(',', pos);
@@ -246,13 +248,14 @@ void Analysis::parseHistoryLine(const String& line) {
         if (col == _stampColumn) stamp = line.substring(pos, next);
         if (col == _largeColumn) largeText = line.substring(pos, next);
         if (col == _smallColumn) smallText = line.substring(pos, next);
+        if (col == _outdoorColumn) outdoorText = line.substring(pos, next);
         if (col == _stateColumn) name = line.substring(pos, next);
         ++col;
         pos = next + 1;
     }
-    stamp.trim(); name.trim(); largeText.trim(); smallText.trim();
+    stamp.trim(); name.trim(); largeText.trim(); smallText.trim(); outdoorText.trim();
     // Completed summary rows in v4 have empty raw temperatures.
-    if (!largeText.length() || !smallText.length()) return;
+    if (!largeText.length() || !smallText.length() || !outdoorText.length()) return;
     struct tm tmv = {};
     if (!strptime(stamp.c_str(), "%Y-%m-%d %H:%M:%S", &tmv)) return;
     time_t t = mktime(&tmv);
@@ -264,7 +267,7 @@ void Analysis::parseHistoryLine(const String& line) {
     else if (name == "HEATING") state = CompressorState::HEATING;
     else if (name == "PLATEAU") state = CompressorState::PLATEAU;
     else if (name == "DOWNSTAGING") state = CompressorState::DOWNSTAGING;
-    float delta = fabsf(largeText.toFloat() - smallText.toFloat());
+    float delta = fabsf(largeText.toFloat() - outdoorText.toFloat());
     if (!_history.csvMetric()) delta *= 5.0f / 9.0f;
     if (state == CompressorState::UNKNOWN) return;
     _lastHistoryTimestamp = (uint32_t)t;
