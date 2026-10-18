@@ -10,7 +10,7 @@ AnalysisTotals AnalysisEngine::calculate(const AnalysisEvent* events, size_t cou
         const uint32_t start = cycle.start > windowStart ? cycle.start : windowStart;
         const uint32_t end = cycle.end < now ? cycle.end : now;
         if (end <= start) return;
-        const double seconds = end - start;
+        const uint64_t seconds = end - start;
         switch (classify(cycle.end - cycle.start, highTicks)) {
             case Level::MAINT: t.maint += seconds; break;
             case Level::LOW: t.low += seconds; break;
@@ -18,14 +18,14 @@ AnalysisTotals AnalysisEngine::calculate(const AnalysisEvent* events, size_t cou
         }
     });
     t.on = t.maint + t.low + t.high;
-    const double window = now - windowStart;
+    const uint64_t window = now - windowStart;
     t.off = window > t.on ? window - t.on : 0;
-    t.onPercent = 100 * t.on / window;
-    t.offPercent = 100 * t.off / window;
+    t.onPercent = 100.0f * (float)t.on / (float)window;
+    t.offPercent = 100.0f * (float)t.off / (float)window;
     if (t.on > 0) {
-        t.maintPercent = 100 * t.maint / t.on;
-        t.lowPercent = 100 * t.low / t.on;
-        t.highPercent = 100 * t.high / t.on;
+        t.maintPercent = 100.0f * (float)t.maint / (float)t.on;
+        t.lowPercent = 100.0f * (float)t.low / (float)t.on;
+        t.highPercent = 100.0f * (float)t.high / (float)t.on;
     }
     return t;
 }
@@ -42,7 +42,7 @@ bool AnalysisEngine::calibrate(const AnalysisEvent* events, size_t count,
     if (n < 4) return false;
     float shortCenter = 600, longCenter = 2100;
     for (int iteration = 0; iteration < 16; ++iteration) {
-        double sumShort = 0, sumLong = 0;
+        uint64_t sumShort = 0, sumLong = 0;
         int countShort = 0, countLong = 0;
         for (size_t i = 0; i < n; ++i) {
             if (fabsf((float)durations[i] - shortCenter) <=
