@@ -11,6 +11,7 @@
 #include "Analysis.h"
 #include "WebManager.h"
 #include "UIManager.h"
+#include "SensorSimulator.h"
 
 class App
 {
@@ -40,6 +41,7 @@ private:
 
     TemperatureSensor* getTemperatureSensor(const char *name);
 
+    SensorSimulator _simulator;
     LVGLManager _lvgl;
     UIManager* _ui = nullptr;
     WebManager* _web = nullptr;
