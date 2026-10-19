@@ -79,6 +79,7 @@ void SensorSimulator::process(char* line) {
     dacWrite(SMALL_PIN,v[1]);
     ledcWrite(PWM_CHANNEL,v[2]);
     _active=true;
+    for (int i = 0; i < 3; ++i) _requestedF[i] = f[i];
     _lastUpdate=millis();
     Serial.printf("OK %.2f %.2f %.2f DAC=%u,%u PWM=%u\n",f[0],f[1],f[2],v[0],v[1],v[2]);
 }
@@ -97,6 +98,10 @@ void SensorSimulator::update() {
             _used=0;
             Serial.println("ERR line too long");
         }
+    }
+    if (_active && millis() - _lastSetpointPrint >= 1000) {
+        _lastSetpointPrint = millis();
+        Serial.printf("SIM,%.1f,%.1f,%.1f\n", _requestedF[0], _requestedF[1], _requestedF[2]);
     }
     if(_active&&millis()-_lastUpdate>STALE_MS) {
         _active=false;
