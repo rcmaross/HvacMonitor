@@ -33,7 +33,8 @@ uint8_t to8bit(float voltage) {
 }
 }
 
-void SensorSimulator::begin() {
+void SensorSimulator::begin(Status& status) {
+    _status = &status;
     // Outputs are enabled only when replay sends its first valid F command.
     Serial.println("READY HvacMonitor replay: F,largeF,smallF,outsideF");
 }
@@ -102,4 +103,23 @@ void SensorSimulator::update() {
         setZero();
         Serial.println("STALE outputs zero");
     }
+}
+
+void SensorSimulator::reportTemperatures() {
+    if (!_status) return;
+    const float f[3] = {
+        _status->largePipeTemperature() * 1.8f + 32.0f,
+        _status->smallPipeTemperature() * 1.8f + 32.0f,
+        _status->outdoorTemperature() * 1.8f + 32.0f
+    };
+    int current[3];
+    bool changed = false;
+    for (int i = 0; i < 3; ++i) {
+        current[i] = isfinite(f[i]) ? static_cast<int>(lroundf(f[i] * 10.0f)) : INT32_MIN;
+        if (current[i] != _previous[i]) changed = true;
+    }
+    if (changed && _active) {
+        Serial.printf("TEMP,%.1f,%.1f,%.1f\n", f[0], f[1], f[2]);
+    }
+    for (int i = 0; i < 3; ++i) _previous[i] = current[i];
 }
