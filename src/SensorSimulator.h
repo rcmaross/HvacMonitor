@@ -20,4 +20,6 @@ private:
     bool _active=false;
     bool _initialized=false;
     uint32_t _lastUpdate=0;
+    uint32_t _lastSetpointPrint=0;
+    float _requestedF[3]={NAN,NAN,NAN};
 };
