@@ -63,6 +63,7 @@ void App::begin()
     M5.begin(cfg);
     Serial.begin(115200); 
     Serial.printf("App starting\n");
+    _simulator.begin();
 
     M5.Power.setExtOutput(true);
     M5.Power.setChargeCurrent(100); // charge RTC battery
@@ -108,6 +109,23 @@ void App::begin()
 void App::runEveryQuarterSecond()
 {
     _status->update();
+    // Report measured temperatures (not requested simulator values) to serial.
+    const float f[3] = {
+        _status->largePipeTemperature() * 1.8f + 32.0f,
+        _status->smallPipeTemperature() * 1.8f + 32.0f,
+        _status->outdoorTemperature() * 1.8f + 32.0f
+    };
+    static int previous[3] = {INT32_MIN, INT32_MIN, INT32_MIN};
+    int current[3];
+    bool changed = false;
+    for (int i = 0; i < 3; ++i) {
+        current[i] = isfinite(f[i]) ? static_cast<int>(lroundf(f[i] * 10.0f)) : INT32_MIN;
+        if (current[i] != previous[i]) changed = true;
+    }
+    if (changed && _simulator.active()) {
+        Serial.printf("TEMP,%.1f,%.1f,%.1f\n", f[0], f[1], f[2]);
+    }
+    for (int i = 0; i < 3; ++i) previous[i] = current[i];
 }
 
 float App::convertTempFromCelsius(float c)
@@ -129,6 +147,7 @@ void App::runEverySecond()
 void App::run()
 {
     M5.update();
+    _simulator.update();
 
     _lvgl.update();
     _network->update();
