@@ -7,6 +7,7 @@ import math
 import select
 import sys
 import time
+import threading
 
 import serial
 
@@ -22,8 +23,6 @@ def send(port, temps):
     command = "F," + ",".join(f"{v:.3f}" for v in temps) + "\n"
     port.write(command.encode("ascii"))
     port.flush()
-    response = port.readline().decode("ascii", errors="replace").strip()
-    print(response or "(no response)", flush=True)
 
 
 def manual(port):
@@ -179,14 +178,32 @@ def main():
     if args.manual and args.csv_file:
         p.error("Do not provide a CSV file with --manual")
 
-    with serial.Serial(args.port, 115200, timeout=1) as port:
-        time.sleep(2)
-        port.reset_input_buffer()
+    with serial.Serial(args.port, 115200, timeout=0.2) as port:
+        stop = threading.Event()
 
-        if args.manual:
-            manual(port)
-        else:
-            replay(port, args)
+        def serial_console():
+            while not stop.is_set():
+                try:
+                    data = port.readline()
+                except serial.SerialException as exc:
+                    print(f"Serial read error: {exc}", flush=True)
+                    stop.set()
+                    break
+                if data:
+                    print(data.decode("utf-8", errors="replace").rstrip("\r\n"), flush=True)
+
+        reader = threading.Thread(target=serial_console, daemon=True)
+        reader.start()
+        try:
+            if args.manual:
+                manual(port)
+            else:
+                replay(port, args)
+                # Allow the last response to reach the console.
+                time.sleep(0.5)
+        finally:
+            stop.set()
+            reader.join(timeout=1.0)
 
 
 if __name__ == "__main__":
