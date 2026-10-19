@@ -25,18 +25,19 @@ def send(port, temps):
     port.flush()
 
 
-def manual(port):
+def manual(port, stop):
     temps = [75.0, 75.0, 75.0]
     names = {"l": 0, "s": 1, "o": 2}
     print("Manual mode (F): l:75  s:95  o:70 | show | quit")
     print("Starting with all temperatures at 75 F.")
     send(port, temps)
+    last_refresh = time.monotonic()
 
-    while True:
+    while not stop.is_set():
         print("temp> ", end="", flush=True)
 
-        while True:
-            ready, _, _ = select.select([sys.stdin], [], [], 10.0)
+        while not stop.is_set():
+            ready, _, _ = select.select([sys.stdin], [], [], 0.2)
             if ready:
                 command = sys.stdin.readline()
                 if not command:
@@ -44,10 +45,14 @@ def manual(port):
                     return
                 break
 
-            print("\n(refresh)", end=" ", flush=True)
-            send(port, temps)
-            print("temp> ", end="", flush=True)
+            if time.monotonic() - last_refresh >= 10.0:
+                print("\n(refresh)", end=" ", flush=True)
+                send(port, temps)
+                last_refresh = time.monotonic()
+                print("temp> ", end="", flush=True)
 
+        if stop.is_set():
+            return
         command = command.strip().lower()
 
         if command in ("quit", "exit", "q"):
@@ -85,7 +90,7 @@ def manual(port):
         send(port, temps)
 
 
-def replay(port, args):
+def replay(port, args, stop):
     with open(args.csv_file, newline="") as stream:
         rows = csv.DictReader(stream)
 
@@ -96,6 +101,8 @@ def replay(port, args):
         sent_count = 0
 
         for row in rows:
+            if stop.is_set():
+                return
             try:
                 temps = [
                     float(row[name])
@@ -127,7 +134,8 @@ def replay(port, args):
                     flush=True
                 )
 
-                time.sleep(delay)
+                if stop.wait(delay):
+                    return
 
             if args.units == "C":
                 temps = [x * 1.8 + 32 for x in temps]
@@ -185,7 +193,7 @@ def main():
             while not stop.is_set():
                 try:
                     data = port.readline()
-                except serial.SerialException as exc:
+                except (serial.SerialException, OSError) as exc:
                     print(f"Serial read error: {exc}", flush=True)
                     stop.set()
                     break
@@ -196,14 +204,19 @@ def main():
         reader.start()
         try:
             if args.manual:
-                manual(port)
+                manual(port, stop)
             else:
-                replay(port, args)
+                replay(port, args, stop)
                 # Allow the last response to reach the console.
-                time.sleep(0.5)
+                stop.wait(0.5)
+        except KeyboardInterrupt:
+            print("\nStopping replay and closing serial port.", flush=True)
         finally:
             stop.set()
-            reader.join(timeout=1.0)
+            reader.join(timeout=2.0)
+            if reader.is_alive():
+                port.cancel_read()
+                reader.join(timeout=1.0)
 
 
 if __name__ == "__main__":
