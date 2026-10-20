@@ -222,6 +222,7 @@ void Analysis::parseHistoryLine(const String& line) {
     CompressorState state = CompressorState::UNKNOWN;
     if (name == "OFF") state = CompressorState::OFF;
     else if (name == "HEATING") state = CompressorState::HEATING;
+    else if (name == "STANDBY_HEATING") state = CompressorState::STANDBY_HEATING;
     else if (name == "PLATEAU") state = CompressorState::PLATEAU;
     else if (name == "DOWNSTAGING") state = CompressorState::DOWNSTAGING;
     float delta = fabsf(largeText.toFloat() - outdoorText.toFloat());
