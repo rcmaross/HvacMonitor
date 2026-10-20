@@ -2,7 +2,7 @@
 
 #include "TempSensor.h"
 
-enum class CompressorState { UNKNOWN, OFF, HEATING, PLATEAU, DOWNSTAGING };
+enum class CompressorState { UNKNOWN, OFF, HEATING, STANDBY_HEATING, PLATEAU, DOWNSTAGING };
 
 class Status
 {
@@ -19,6 +19,7 @@ public:
     CompressorState compressorState() const { return _compressorState; }
     bool compressorHeating() const {
         return _compressorState == CompressorState::HEATING ||
+               _compressorState == CompressorState::STANDBY_HEATING ||
                _compressorState == CompressorState::PLATEAU ||
                _compressorState == CompressorState::DOWNSTAGING;
     }
