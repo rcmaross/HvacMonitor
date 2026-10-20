@@ -40,8 +40,10 @@ void test_symmetric_outliers_trimmed() {
     adcValue = 1000;
     for (int i = 0; i < 3; ++i) sensor.readCelsius();
     adcValue = 3000;
-    for (int i = 0; i < 3; ++i) sensor.readCelsius();
-    TEST_ASSERT_FLOAT_WITHIN(0.002f, expectedCelsius(2048), sensor.readCelsius());
+    float lastAverage = NAN;
+    for (int i = 0; i < 3; ++i) lastAverage = sensor.readCelsius();
+    // Last read already returned the trimmed mean for the complete 60-sample window.
+    TEST_ASSERT_FLOAT_WITHIN(0.002f, expectedCelsius(2048), lastAverage);
 }
 void test_sustained_step_fills_rolling_window() {
     reset();
