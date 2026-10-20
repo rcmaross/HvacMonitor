@@ -82,6 +82,7 @@ void App::begin()
 
     _status = new Status(large, small, outdoor);
     _status->begin();
+    _simulator.begin(*_status);
 
     _history = new History(*_status);
     _history->begin();
@@ -108,6 +109,7 @@ void App::begin()
 void App::runEveryQuarterSecond()
 {
     _status->update();
+    _simulator.reportTemperatures();
 }
 
 float App::convertTempFromCelsius(float c)
@@ -129,6 +131,7 @@ void App::runEverySecond()
 void App::run()
 {
     M5.update();
+    _simulator.update();
 
     _lvgl.update();
     _network->update();
