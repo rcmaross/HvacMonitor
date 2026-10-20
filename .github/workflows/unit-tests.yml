@@ -52,7 +52,7 @@ jobs:
           print(f'Verified firmware.bin: {version}, commit {sha}')
           PY
       - name: Publish development firmware
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: hvac-monitor-dev-${{ github.sha }}
           path: .pio/build/m5stack-core2/firmware.bin
