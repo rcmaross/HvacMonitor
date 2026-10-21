@@ -1,5 +1,6 @@
 #include "FirmwareUI.h"
 #include "BuildInfo.h"
+#include <Arduino.h>
 #include <stdio.h>
 FirmwareUI::FirmwareUI(lv_obj_t* parent) {
     _root = lv_obj_create(parent);
@@ -25,5 +26,19 @@ FirmwareUI::FirmwareUI(lv_obj_t* parent) {
         lv_obj_set_style_text_color(label, lv_color_hex(0xF2F4F5), 0);
         lv_obj_set_style_text_font(label, &lv_font_montserrat_14, 0);
     }
+    _uptime = lv_label_create(_root);
+    lv_obj_set_style_text_color(_uptime, lv_color_hex(0xF2F4F5), 0);
+    lv_obj_set_style_text_font(_uptime, &lv_font_montserrat_14, 0);
+    update();
+}
+void FirmwareUI::update() {
+    const uint32_t seconds = millis() / 1000;
+    if (!_uptime || seconds == _lastUptimeSeconds) return;
+    _lastUptimeSeconds = seconds;
+    char line[96];
+    snprintf(line, sizeof(line), "Uptime: %lu d %02lu:%02lu:%02lu",
+        (unsigned long)(seconds / 86400), (unsigned long)((seconds / 3600) % 24),
+        (unsigned long)((seconds / 60) % 60), (unsigned long)(seconds % 60));
+    lv_label_set_text(_uptime, line);
 }
 FirmwareUI::~FirmwareUI() { if (_root) lv_obj_delete(_root); }
