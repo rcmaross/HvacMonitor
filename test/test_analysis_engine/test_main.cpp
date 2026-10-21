@@ -186,8 +186,53 @@ void test_calibration_ignores_maintenance_cycles() {
     TEST_ASSERT_FALSE(AnalysisEngine::calibrate(e, 4, 10, ticks));
     TEST_ASSERT_EQUAL_INT(40, ticks);
 }
+
+void test_short_on_between_off_is_removed() {
+    const AnalysisEvent e[] = {
+        {0,100,0,AnalysisEventType::OFF},
+        {100,20,0,AnalysisEventType::HEATING},
+        {120,100,0,AnalysisEventType::OFF}
+    };
+    const auto t = AnalysisEngine::calculate(e,3,0,220,40,30);
+    TEST_ASSERT_EQUAL_UINT64(0,t.on);
+    TEST_ASSERT_EQUAL_UINT64(220,t.off);
+}
+void test_short_off_between_on_is_bridged() {
+    const AnalysisEvent e[] = {
+        {0,200,0,AnalysisEventType::HEATING},
+        {200,20,0,AnalysisEventType::OFF},
+        {220,200,0,AnalysisEventType::HEATING}
+    };
+    const auto t = AnalysisEngine::calculate(e,3,0,420,40,30);
+    TEST_ASSERT_EQUAL_UINT64(420,t.low);
+    TEST_ASSERT_EQUAL_UINT64(0,t.off);
+}
+void test_minimum_on_boundary_and_below() {
+    const AnalysisEvent e[] = {
+        {0,20,0,AnalysisEventType::HEATING},
+        {20,100,0,AnalysisEventType::OFF},
+        {120,30,0,AnalysisEventType::HEATING}
+    };
+    const auto t = AnalysisEngine::calculate(e,3,0,150,40,30);
+    TEST_ASSERT_EQUAL_UINT64(30,t.maint);
+    TEST_ASSERT_EQUAL_UINT64(120,t.off);
+}
+void test_long_off_separates_on_cycles() {
+    const AnalysisEvent e[] = {
+        {0,200,0,AnalysisEventType::HEATING},
+        {200,40,0,AnalysisEventType::OFF},
+        {240,200,0,AnalysisEventType::HEATING}
+    };
+    const auto t = AnalysisEngine::calculate(e,3,0,440,40,30);
+    TEST_ASSERT_EQUAL_UINT64(400,t.low);
+    TEST_ASSERT_EQUAL_UINT64(40,t.off);
+}
 int main(int, char**) {
     UNITY_BEGIN();
+    RUN_TEST(test_short_on_between_off_is_removed);
+    RUN_TEST(test_short_off_between_on_is_bridged);
+    RUN_TEST(test_minimum_on_boundary_and_below);
+    RUN_TEST(test_long_off_separates_on_cycles);
     RUN_TEST(test_boundaries);
     RUN_TEST(test_empty);
     RUN_TEST(test_cycle_reconstruction);
