@@ -47,9 +47,9 @@ void Status::sampleCompressor()
             const float deltaC = largeC - smallC;
             const float deltaSlope = _largeSlopeCPerMin - _smallSlopeCPerMin;
 
-            // Thresholds are in C/min; 1 and 3 F/min respectively.
-            constexpr float SUSPECT_SLOPE = 1.0f / 1.8f;
-            constexpr float CONFIRM_SLOPE = 3.0f / 1.8f;
+            // Thresholds in C/min (approximately 1.1 and 3.1 F/min).
+            constexpr float SUSPECT_SLOPE = 0.6f;
+            constexpr float CONFIRM_SLOPE = 1.7f;
             constexpr float SLOPE_DEADBAND = 0.2f;
             constexpr float INIT_DELTA_C = 3.0f;
             constexpr float PLATEAU_DELTA_C = 20.0f;
