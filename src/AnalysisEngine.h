@@ -47,15 +47,15 @@ private:
             if (ev.type == AnalysisEventType::HEATING) {
                 if (!active || (ev.start > cycle.end &&
                     !canBridgeOff(ev.start - cycle.end, minDuration))) {
-                    if (active && cycle.end - cycle.start > minDuration) if (cycle.end - cycle.start > minDuration) callback(cycle);
+                    if (active && cycle.end - cycle.start >= minDuration) callback(cycle);
                     cycle = {ev.start, end};
                     active = true;
                 } else if (end > cycle.end) cycle.end = end;
             } else if (active && ev.seconds > minDuration) {
-                if (cycle.end - cycle.start > minDuration) callback(cycle);
+                if (cycle.end - cycle.start >= minDuration) callback(cycle);
                 active = false;
             }
         }
-        if (active && cycle.end - cycle.start > minDuration) callback(cycle);
+        if (active && cycle.end - cycle.start >= minDuration) callback(cycle);
     }
 };
