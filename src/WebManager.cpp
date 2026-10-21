@@ -52,14 +52,14 @@ void WebManager::begin()
         String json = String("{\"version\":\"") + BuildInfo::version() +
             "\",\"commit\":\"" + BuildInfo::commit() +
             "\",\"type\":\"" + BuildInfo::buildType() +
-            "\",\"date\":\"" + BuildInfo::buildDate() + "\"}";
+            "\",\"date\":\"" + BuildInfo::buildDate() + "\",\"uptimeSeconds\":" + String(millis() / 1000) + "}";
         _server.send(200, "application/json", json);
     });
     _server.on("/analysis", HTTP_GET, [this]() { _server.send(200, "text/html", ANALYSIS_HTML); });
     _server.on("/api/analysis", HTTP_GET, [this]() { _server.send(200, "application/json", _analysis.json()); });
     _server.on("/api/analysis/config", HTTP_POST, [this]() {
         if (_server.hasArg("auto")) _analysis.setAuto(_server.arg("auto") == "true");
-        if (_server.hasArg("ignoreOff")) _analysis.setIgnoreOff(_server.arg("ignoreOff").toInt());
+        if (_server.hasArg("minDuration")) _analysis.setMinDuration(_server.arg("minDuration").toInt());
         if (_server.hasArg("low") && _server.hasArg("high")) {
             if (!_analysis.setStrengthThresholds(_server.arg("low").toInt(), _server.arg("high").toInt())) {
                 _server.send(400, "text/plain", "Invalid thresholds or automatic mode enabled"); return;

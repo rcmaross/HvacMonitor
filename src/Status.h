@@ -26,6 +26,8 @@ public:
     static const char* compressorStateName(CompressorState state);
     float largeSlopeCPerMin() const { return _largeSlopeCPerMin; }
     float smallSlopeCPerMin() const { return _smallSlopeCPerMin; }
+    float outsideSlopeCPerMin() const { return _outsideSlopeCPerMin; }
+    float largeOutsideSlopeCPerMin() const { return _largeSlopeCPerMin - _outsideSlopeCPerMin; }
 
     float largePipeTemperature() const { return _largePipeTemperature; }
     float smallPipeTemperature() const { return _smallPipeTemperature; }
@@ -36,6 +38,7 @@ private:
     struct TemperatureSample {
         float largeC;
         float smallC;
+        float outsideC;
         unsigned long timestampMs;
     };
     TemperatureSample _samples[SLOPE_SAMPLES] = {};
@@ -43,6 +46,7 @@ private:
     int _sampleCount = 0;
     float _largeSlopeCPerMin = NAN;
     float _smallSlopeCPerMin = NAN;
+    float _outsideSlopeCPerMin = NAN;
     CompressorState _compressorState = CompressorState::UNKNOWN;
 
     TemperatureSensor* _largePipeSensor;

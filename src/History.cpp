@@ -1,6 +1,7 @@
 #include "History.h"
 #include "App.h"
 #include "Analysis.h"
+#include "BuildInfo.h"
 
 #include <SD.h>
 #include <math.h>
@@ -52,7 +53,7 @@ void History::write(const Analysis& analysis)
         return;
     }
 
-    static constexpr int CSV_VERSION = 5;
+    static constexpr int CSV_VERSION = 6;
 
     char filename[64];
 
@@ -87,10 +88,13 @@ void History::write(const Analysis& analysis)
             "large_slope,"
             "small_slope,"
             "large_small_slope,"
+            "outside_slope,"
+            "large_outside_slope,"
             "compressor_state,"
             "analysis_sample_count,"
             "analysis_avg_delta_c,"
-            "analysis_end_reason"
+            "analysis_end_reason,"
+            "firmware_version"
         );
     }
 
@@ -103,6 +107,8 @@ void History::write(const Analysis& analysis)
                               app.convertTempFromCelsius(0.0f);
     const float largeSlope = _status.largeSlopeCPerMin() * slopeFactor;
     const float smallSlope = _status.smallSlopeCPerMin() * slopeFactor;
+    const float outsideSlope = _status.outsideSlopeCPerMin() * slopeFactor;
+    const float largeOutsideSlope = _status.largeOutsideSlopeCPerMin() * slopeFactor;
 
     time_t now = time(nullptr);
 
@@ -128,12 +134,13 @@ void History::write(const Analysis& analysis)
     const float average = minute ? completed.avgDeltaC : analysis.runningAverage();
 
     file.printf(
-        "%s,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.4f,%.4f,%.4f,%s,%u,%.3f,%s\n",
+        "%s,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.4f,%.4f,%.4f,%.4f,%.4f,%s,%u,%.3f,%s,%s\n",
         timestamp, large, small, outside,
         fabsf(large - small), fabsf(large - outside), fabsf(small - outside),
         largeSlope, smallSlope, largeSlope - smallSlope,
+        outsideSlope, largeOutsideSlope,
         Status::compressorStateName(_status.compressorState()),
-        count, average, reason
+        count, average, reason, BuildInfo::version()
     );
 
     file.flush();

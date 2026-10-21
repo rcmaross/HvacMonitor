@@ -3,10 +3,10 @@
 
 AnalysisTotals AnalysisEngine::calculate(const AnalysisEvent* events, size_t count,
                                          uint32_t windowStart, uint32_t now,
-                                         int highTicks, uint32_t ignoreOff) {
+                                         int highTicks, uint32_t minDuration) {
     AnalysisTotals t;
     if (!events || now <= windowStart || !validHighTicks(highTicks)) return t;
-    forEachCycle(events, count, ignoreOff, [&](Cycle cycle) {
+    forEachCycle(events, count, minDuration, [&](Cycle cycle) {
         const uint32_t start = cycle.start > windowStart ? cycle.start : windowStart;
         const uint32_t end = cycle.end < now ? cycle.end : now;
         if (end <= start) return;
@@ -31,11 +31,11 @@ AnalysisTotals AnalysisEngine::calculate(const AnalysisEvent* events, size_t cou
 }
 
 bool AnalysisEngine::calibrate(const AnalysisEvent* events, size_t count,
-                               uint32_t ignoreOff, int& highTicks) {
+                               uint32_t minDuration, int& highTicks) {
     if (!events) return false;
     uint32_t durations[256] = {};
     size_t n = 0;
-    forEachCycle(events, count, ignoreOff, [&](Cycle cycle) {
+    forEachCycle(events, count, minDuration, [&](Cycle cycle) {
         const uint32_t seconds = cycle.end - cycle.start;
         if (seconds > MAINT_SECONDS && n < 256) durations[n++] = seconds;
     });

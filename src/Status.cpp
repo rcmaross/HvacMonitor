@@ -31,6 +31,7 @@ void Status::sampleCompressor()
 
     _largeSlopeCPerMin = NAN;
     _smallSlopeCPerMin = NAN;
+    _outsideSlopeCPerMin = NAN;
     _compressorState = CompressorState::UNKNOWN;
 
     if (isfinite(largeC) && isfinite(smallC) && isfinite(_outdoorTemperature) && _sampleCount >= SLOPE_SAMPLES)
@@ -41,6 +42,8 @@ void Status::sampleCompressor()
         {
             _largeSlopeCPerMin = (largeC - old.largeC) / elapsedMinutes;
             _smallSlopeCPerMin = (smallC - old.smallC) / elapsedMinutes;
+            if (isfinite(old.outsideC))
+                _outsideSlopeCPerMin = (_outdoorTemperature - old.outsideC) / elapsedMinutes;
             const float deltaC = largeC - smallC;
             const float deltaSlope = _largeSlopeCPerMin - _smallSlopeCPerMin;
 
@@ -65,7 +68,7 @@ void Status::sampleCompressor()
         }
     }
 
-    _samples[_sampleIndex] = {largeC, smallC, nowMs};
+    _samples[_sampleIndex] = {largeC, smallC, _outdoorTemperature, nowMs};
     _sampleIndex = (_sampleIndex + 1) % SLOPE_SAMPLES;
     if (_sampleCount < SLOPE_SAMPLES)
         ++_sampleCount;

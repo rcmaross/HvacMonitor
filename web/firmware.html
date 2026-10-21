@@ -4,10 +4,12 @@
 dt{color:#aeb7bf;margin-top:16px}dd{margin:5px 0;overflow-wrap:anywhere}</style></head>
 <body><h2>Installed Firmware</h2><dl id="info">Loading...</dl>
 <script>
+function formatUptime(s){s=Math.floor(s);const d=Math.floor(s/86400);s%=86400;return d+' d '+[Math.floor(s/3600),Math.floor(s/60)%60,s%60].map(n=>String(n).padStart(2,'0')).join(':');}
+let uptimeBase=0,uptimeAt=0;
 fetch('/api/firmware').then(r=>{if(!r.ok)throw Error(r.status);return r.json()})
 .then(d=>{const el=document.getElementById('info');el.textContent='';
-for(const [label,key] of [['Version','version'],['Git commit','commit'],['Build type','type'],['Build date','date']]){
+for(const [label,key] of [['Version','version'],['Git commit','commit'],['Build type','type'],['Build date','date'],['Uptime','uptimeSeconds']]){
 const dt=document.createElement('dt');dt.textContent=label;el.appendChild(dt);
-const dd=document.createElement('dd');dd.textContent=d[key];el.appendChild(dd);
-}}).catch(()=>document.getElementById('info').textContent='Firmware information unavailable');
+const dd=document.createElement('dd');dd.textContent=key==='uptimeSeconds'?formatUptime(d[key]):d[key];if(key==='uptimeSeconds')dd.id='uptime';el.appendChild(dd);
+}uptimeBase=d.uptimeSeconds;uptimeAt=Date.now();setInterval(()=>{const el=document.getElementById('uptime');if(el)el.textContent=formatUptime(uptimeBase+Math.floor((Date.now()-uptimeAt)/1000));},1000);}).catch(()=>document.getElementById('info').textContent='Firmware information unavailable');
 </script></body></html>

@@ -13,7 +13,7 @@ void Analysis::save() {
     p.putBool("auto", _auto);
     p.putInt("low", _low);
     p.putInt("high", _high);
-    p.putInt("ignore", _ignoreOff);
+    p.putInt("minDuration", _minDuration);
     p.end();
 }
 
@@ -23,11 +23,11 @@ void Analysis::begin() {
     _auto = p.getBool("auto", true);
     _low = p.getInt("low", 6);
     _high = p.getInt("high", 40);
-    _ignoreOff = p.getInt("ignore", 10);
+    _minDuration = p.getInt("minDuration", 30);
     p.end();
     if (_low != 6) _low = 6;
     if (_high <= _low || _high > 100) _high = 40;
-    if (_ignoreOff < 0 || _ignoreOff > 120 || _ignoreOff % 10) _ignoreOff = 10;
+    if (_minDuration < 0 || _minDuration > 120 || _minDuration % 10) _minDuration = 30;
     _events = (AnalysisEvent*)heap_caps_malloc(CAPACITY * sizeof(AnalysisEvent), MALLOC_CAP_SPIRAM | MALLOC_CAP_8BIT);
     if (!_events) _events = (AnalysisEvent*)malloc(CAPACITY * sizeof(AnalysisEvent));
     _cutoff = 0;
@@ -51,9 +51,9 @@ bool Analysis::setStrengthThresholds(int low, int high) {
     // Values are 30-second ticks (0..100 = 0..50 minutes).
     return setThresholds(low, high);
 }
-void Analysis::setIgnoreOff(int seconds) {
+void Analysis::setMinDuration(int seconds) {
     if (seconds < 0 || seconds > 120 || seconds % 10) return;
-    _ignoreOff = seconds; save();
+    _minDuration = seconds; save(); recalculate();
 }
 
 void Analysis::append(uint32_t start, uint32_t seconds, AnalysisEventType type, float avg) {
@@ -89,7 +89,14 @@ void Analysis::feed(uint32_t timestamp, CompressorState state, float delta) {
         _sumDelta = 0;
         return;
     }
-    AnalysisEventType type = state == CompressorState::OFF ? AnalysisEventType::OFF : AnalysisEventType::HEATING;
+    AnalysisEventType type = AnalysisEventType::OFF;
+    switch (state) {
+        case CompressorState::HEATING: type = AnalysisEventType::HEATING; break;
+        case CompressorState::STANDBY_HEATING: type = AnalysisEventType::STANDBY_HEATING; break;
+        case CompressorState::PLATEAU: type = AnalysisEventType::PLATEAU; break;
+        case CompressorState::DOWNSTAGING: type = AnalysisEventType::DOWNSTAGING; break;
+        default: break;
+    }
     if (_hasPrevious) {
         if (timestamp <= _previousTime || timestamp - _previousTime > 30) {
             finish(_previousTime + 10, "STATE_CHANGE");
@@ -136,7 +143,7 @@ void Analysis::calibrate() {
     AnalysisEvent* ordered = (AnalysisEvent*)malloc(_count * sizeof(AnalysisEvent));
     if (!ordered) return;
     for (size_t i = 0; i < _count; ++i) ordered[i] = at(i);
-    AnalysisEngine::calibrate(ordered, _count, (uint32_t)_ignoreOff, _high);
+    AnalysisEngine::calibrate(ordered, _count, (uint32_t)_minDuration, _high);
     free(ordered);
 }
 
@@ -149,12 +156,12 @@ void Analysis::recalculate() {
     if (!ordered) return;
     for (size_t i = 0; i < _count; ++i) ordered[i] = at(i);
     AnalysisTotals totals = AnalysisEngine::calculate(
-        ordered, _count, now - 86400, now, _high, (uint32_t)_ignoreOff);
+        ordered, _count, now - 86400, now, _high, (uint32_t)_minDuration);
     free(ordered);
     _off = totals.offPercent;
     _on = totals.onPercent;
     _lowPct = totals.lowPercent;
-    _mediumPct = totals.maintPercent;
+    _maintPct = totals.maintPercent;
     _highPct = totals.highPercent;
 }
 String Analysis::json() const {
@@ -162,10 +169,10 @@ String Analysis::json() const {
     s += "\"loading\":" + String(_loading ? "true" : "false");
     s += ",\"auto\":" + String(_auto ? "true" : "false");
     s += ",\"low\":" + String(lowStrength()) + ",\"high\":" + String(highStrength());
-    s += ",\"ignoreOff\":" + String(_ignoreOff);
+    s += ",\"minDuration\":" + String(_minDuration);
     s += ",\"off\":" + String(_off, 1) + ",\"on\":" + String(_on, 1);
     s += ",\"lowPercent\":" + String(_lowPct, 1);
-    s += ",\"mediumPercent\":" + String(_mediumPct, 1);
+    s += ",\"maintPercent\":" + String(_maintPct, 1);
     s += ",\"highPercent\":" + String(_highPct, 1) + "}";
     return s;
 }
