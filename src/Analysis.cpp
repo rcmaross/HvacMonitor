@@ -89,7 +89,14 @@ void Analysis::feed(uint32_t timestamp, CompressorState state, float delta) {
         _sumDelta = 0;
         return;
     }
-    AnalysisEventType type = state == CompressorState::OFF ? AnalysisEventType::OFF : AnalysisEventType::HEATING;
+    AnalysisEventType type = AnalysisEventType::OFF;
+    switch (state) {
+        case CompressorState::HEATING: type = AnalysisEventType::HEATING; break;
+        case CompressorState::STANDBY_HEATING: type = AnalysisEventType::STANDBY_HEATING; break;
+        case CompressorState::PLATEAU: type = AnalysisEventType::PLATEAU; break;
+        case CompressorState::DOWNSTAGING: type = AnalysisEventType::DOWNSTAGING; break;
+        default: break;
+    }
     if (_hasPrevious) {
         if (timestamp <= _previousTime || timestamp - _previousTime > 30) {
             finish(_previousTime + 10, "STATE_CHANGE");
