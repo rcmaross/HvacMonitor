@@ -3,7 +3,7 @@
 #include <stdint.h>
 
 // Hardware-independent calculation engine. No Arduino or device dependencies.
-enum class AnalysisEventType : uint8_t { OFF, HEATING };
+enum class AnalysisEventType : uint8_t { OFF, HEATING, STANDBY_HEATING, PLATEAU, DOWNSTAGING };
 struct AnalysisEvent {
     uint32_t start;
     uint32_t seconds;
@@ -44,13 +44,22 @@ private:
             const AnalysisEvent& ev = events[i];
             if (!ev.seconds) continue;
             const uint32_t end = ev.start + ev.seconds;
-            if (ev.type == AnalysisEventType::HEATING) {
+            // Only rising-temperature states may initiate a cycle. PLATEAU and
+            // DOWNSTAGING may extend an existing cycle, never start one.
+            const bool startup = ev.type == AnalysisEventType::HEATING ||
+                                 ev.type == AnalysisEventType::STANDBY_HEATING;
+            const bool continuation = ev.type == AnalysisEventType::PLATEAU ||
+                                      ev.type == AnalysisEventType::DOWNSTAGING;
+            if (startup) {
                 if (!active || (ev.start > cycle.end &&
                     !canBridgeOff(ev.start - cycle.end, minDuration))) {
                     if (active && cycle.end - cycle.start >= minDuration) callback(cycle);
                     cycle = {ev.start, end};
                     active = true;
                 } else if (end > cycle.end) cycle.end = end;
+            } else if (continuation) {
+                if (active && ev.start <= cycle.end && end > cycle.end)
+                    cycle.end = end;
             } else if (active && ev.seconds > minDuration) {
                 if (cycle.end - cycle.start >= minDuration) callback(cycle);
                 active = false;
