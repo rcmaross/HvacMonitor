@@ -61,7 +61,7 @@ private:
     void flushPending(bool confirmed);
     void calibrate();
     int _stampColumn = -1, _largeColumn = -1, _smallColumn = -1, _outdoorColumn = -1, _stateColumn = -1;
-    bool _headerChecked = false, _headerValid = false;
+    bool _headerChecked = false, _headerValid = false, _historyCelsius = false;
     void parseHistoryLine(const String& line);
     void resetHistoryHeader();
     uint32_t _lastHistoryTimestamp = 0;
