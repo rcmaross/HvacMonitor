@@ -206,6 +206,7 @@ String Analysis::json() const {
 void Analysis::resetHistoryHeader() {
     _headerChecked = false;
     _headerValid = false;
+    _historyCelsius = false;
     _stampColumn = _largeColumn = _smallColumn = _outdoorColumn = _stateColumn = -1;
 }
 
@@ -219,9 +220,12 @@ void Analysis::parseHistoryLine(const String& line) {
             String field = line.substring(pos, next);
             field.trim();
             if (field == "timestamp") _stampColumn = column;
-            else if (field == "large") _largeColumn = column;
-            else if (field == "small") _smallColumn = column;
-            else if (field == "outside") _outdoorColumn = column;
+            else if (field == "large" || field == "large_c") {
+                _largeColumn = column;
+                if (field == "large_c") _historyCelsius = true;
+            }
+            else if (field == "small" || field == "small_c") _smallColumn = column;
+            else if (field == "outside" || field == "outside_c") _outdoorColumn = column;
             else if (field == "compressor_state") _stateColumn = column;
             ++column;
             pos = next + 1;
@@ -261,7 +265,7 @@ void Analysis::parseHistoryLine(const String& line) {
     else if (name == "PLATEAU") state = CompressorState::PLATEAU;
     else if (name == "DOWNSTAGING") state = CompressorState::DOWNSTAGING;
     float delta = fabsf(largeText.toFloat() - outdoorText.toFloat());
-    if (!_history.csvMetric()) delta *= 5.0f / 9.0f;
+    if (!_historyCelsius && !_history.csvMetric()) delta *= 5.0f / 9.0f;
     if (state == CompressorState::UNKNOWN) return;
     _lastHistoryTimestamp = (uint32_t)t;
     feed((uint32_t)t, state, delta);
