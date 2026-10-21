@@ -52,7 +52,7 @@ void WebManager::begin()
         String json = String("{\"version\":\"") + BuildInfo::version() +
             "\",\"commit\":\"" + BuildInfo::commit() +
             "\",\"type\":\"" + BuildInfo::buildType() +
-            "\",\"date\":\"" + BuildInfo::buildDate() + "\"}";
+            "\",\"date\":\"" + BuildInfo::buildDate() + "\",\"uptimeSeconds\":" + String(millis() / 1000) + "}";
         _server.send(200, "application/json", json);
     });
     _server.on("/analysis", HTTP_GET, [this]() { _server.send(200, "text/html", ANALYSIS_HTML); });
