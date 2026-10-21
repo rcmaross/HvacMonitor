@@ -53,7 +53,7 @@ void History::write(const Analysis& analysis)
         return;
     }
 
-    static constexpr int CSV_VERSION = 6;
+    static constexpr int CSV_VERSION = 7;
 
     char filename[64];
 
@@ -79,17 +79,17 @@ void History::write(const Analysis& analysis)
     {
         file.println(
             "timestamp,"
-            "large,"
-            "small,"
-            "outside,"
-            "large_small_delta,"
-            "large_outside_delta,"
-            "small_outside_delta,"
-            "large_slope,"
-            "small_slope,"
-            "large_small_slope,"
-            "outside_slope,"
-            "large_outside_slope,"
+            "large_c,"
+            "small_c,"
+            "outside_c,"
+            "large_small_delta_c,"
+            "large_outside_delta_c,"
+            "small_outside_delta_c,"
+            "large_slope_c_per_min,"
+            "small_slope_c_per_min,"
+            "large_small_slope_c_per_min,"
+            "outside_slope_c_per_min,"
+            "large_outside_slope_c_per_min,"
             "compressor_state,"
             "analysis_sample_count,"
             "analysis_avg_delta_c,"
@@ -98,17 +98,14 @@ void History::write(const Analysis& analysis)
         );
     }
 
-    float large = app.convertTempFromCelsius(_status.largePipeTemperature());
-    float small = app.convertTempFromCelsius(_status.smallPipeTemperature());
-    float outside = app.convertTempFromCelsius(_status.outdoorTemperature());
-    
-    // Status computes slopes in C/min; convert only for CSV output.
-    const float slopeFactor = app.convertTempFromCelsius(1.0f) -
-                              app.convertTempFromCelsius(0.0f);
-    const float largeSlope = _status.largeSlopeCPerMin() * slopeFactor;
-    const float smallSlope = _status.smallSlopeCPerMin() * slopeFactor;
-    const float outsideSlope = _status.outsideSlopeCPerMin() * slopeFactor;
-    const float largeOutsideSlope = _status.largeOutsideSlopeCPerMin() * slopeFactor;
+    // Diagnostic history is always Celsius, independent of UI preferences.
+    const float large = _status.largePipeTemperature();
+    const float small = _status.smallPipeTemperature();
+    const float outside = _status.outdoorTemperature();
+    const float largeSlope = _status.largeSlopeCPerMin();
+    const float smallSlope = _status.smallSlopeCPerMin();
+    const float outsideSlope = _status.outsideSlopeCPerMin();
+    const float largeOutsideSlope = _status.largeOutsideSlopeCPerMin();
 
     time_t now = time(nullptr);
 
