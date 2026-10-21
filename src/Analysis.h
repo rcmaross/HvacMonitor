@@ -54,6 +54,11 @@ private:
     void append(uint32_t start, uint32_t seconds, AnalysisEventType type, float avg);
     void finish(uint32_t end, const char* reason);
     void feed(uint32_t timestamp, CompressorState state, float delta);
+    void feedResolved(uint32_t timestamp, CompressorState state, float delta);
+    struct PendingSample { uint32_t timestamp; float delta; };
+    PendingSample _pending[4] = {};
+    uint8_t _pendingCount = 0;
+    void flushPending(bool confirmed);
     void calibrate();
     int _stampColumn = -1, _largeColumn = -1, _smallColumn = -1, _outdoorColumn = -1, _stateColumn = -1;
     bool _headerChecked = false, _headerValid = false;
