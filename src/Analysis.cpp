@@ -81,7 +81,34 @@ void Analysis::finish(uint32_t end, const char* reason) {
 
 // Each incoming sample belongs to the interval beginning at its timestamp.
 // The previous sample's state accounts for elapsed time until this sample.
+void Analysis::flushPending(bool confirmed) {
+    for (uint8_t i = 0; i < _pendingCount; ++i)
+        feedResolved(_pending[i].timestamp,
+                     confirmed ? CompressorState::HEATING : CompressorState::OFF,
+                     _pending[i].delta);
+    _pendingCount = 0;
+}
+
+// The detector is stateless. Hold at most 30 seconds of weak evidence,
+// then either backdate confirmed heating or treat the samples as OFF.
 void Analysis::feed(uint32_t timestamp, CompressorState state, float delta) {
+    if (!timestamp || !isfinite(delta) || state == CompressorState::UNKNOWN) {
+        flushPending(false);
+        feedResolved(timestamp, state, delta);
+        return;
+    }
+    if (_pendingCount && (timestamp <= _pending[_pendingCount - 1].timestamp ||
+                          timestamp - _pending[0].timestamp > 30))
+        flushPending(false);
+    if (state == CompressorState::SUSPECTED_HEATING) {
+        if (_pendingCount < 4) _pending[_pendingCount++] = {timestamp, delta};
+        return;
+    }
+    if (_pendingCount) flushPending(state == CompressorState::HEATING);
+    feedResolved(timestamp, state, delta);
+}
+
+void Analysis::feedResolved(uint32_t timestamp, CompressorState state, float delta) {
     _completed.valid = false;
     if (!timestamp || !isfinite(delta) || state == CompressorState::UNKNOWN) {
         _hasPrevious = false;
@@ -179,6 +206,7 @@ String Analysis::json() const {
 void Analysis::resetHistoryHeader() {
     _headerChecked = false;
     _headerValid = false;
+    _historyCelsius = false;
     _stampColumn = _largeColumn = _smallColumn = _outdoorColumn = _stateColumn = -1;
 }
 
@@ -192,9 +220,12 @@ void Analysis::parseHistoryLine(const String& line) {
             String field = line.substring(pos, next);
             field.trim();
             if (field == "timestamp") _stampColumn = column;
-            else if (field == "large") _largeColumn = column;
-            else if (field == "small") _smallColumn = column;
-            else if (field == "outside") _outdoorColumn = column;
+            else if (field == "large" || field == "large_c") {
+                _largeColumn = column;
+                if (field == "large_c") _historyCelsius = true;
+            }
+            else if (field == "small" || field == "small_c") _smallColumn = column;
+            else if (field == "outside" || field == "outside_c") _outdoorColumn = column;
             else if (field == "compressor_state") _stateColumn = column;
             ++column;
             pos = next + 1;
@@ -229,11 +260,12 @@ void Analysis::parseHistoryLine(const String& line) {
     CompressorState state = CompressorState::UNKNOWN;
     if (name == "OFF") state = CompressorState::OFF;
     else if (name == "HEATING") state = CompressorState::HEATING;
+    else if (name == "SUSPECTED_HEATING") state = CompressorState::SUSPECTED_HEATING;
     else if (name == "STANDBY_HEATING") state = CompressorState::STANDBY_HEATING;
     else if (name == "PLATEAU") state = CompressorState::PLATEAU;
     else if (name == "DOWNSTAGING") state = CompressorState::DOWNSTAGING;
     float delta = fabsf(largeText.toFloat() - outdoorText.toFloat());
-    if (!_history.csvMetric()) delta *= 5.0f / 9.0f;
+    if (!_historyCelsius && !_history.csvMetric()) delta *= 5.0f / 9.0f;
     if (state == CompressorState::UNKNOWN) return;
     _lastHistoryTimestamp = (uint32_t)t;
     feed((uint32_t)t, state, delta);

@@ -2,7 +2,7 @@
 
 #include "TempSensor.h"
 
-enum class CompressorState { UNKNOWN, OFF, HEATING, STANDBY_HEATING, PLATEAU, DOWNSTAGING };
+enum class CompressorState { UNKNOWN, OFF, SUSPECTED_HEATING, HEATING, STANDBY_HEATING, PLATEAU, DOWNSTAGING };
 
 class Status
 {

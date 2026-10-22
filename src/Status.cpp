@@ -47,14 +47,18 @@ void Status::sampleCompressor()
             const float deltaC = largeC - smallC;
             const float deltaSlope = _largeSlopeCPerMin - _smallSlopeCPerMin;
 
-            constexpr float START_SLOPE_DEADBAND = 0.5f;
+            // Thresholds in C/min (approximately 1.1 and 3.1 F/min).
+            constexpr float SUSPECT_SLOPE = 0.6f;
+            constexpr float CONFIRM_SLOPE = 1.7f;
             constexpr float SLOPE_DEADBAND = 0.2f;
             constexpr float INIT_DELTA_C = 3.0f;
             constexpr float PLATEAU_DELTA_C = 20.0f;
             constexpr float DOWNSTAGE_DELTA_SLOPE = 3.0f;
 
-            if (_largeSlopeCPerMin > START_SLOPE_DEADBAND)
+            if (_largeSlopeCPerMin >= CONFIRM_SLOPE)
                 _compressorState = CompressorState::HEATING;
+            else if (_largeSlopeCPerMin >= SUSPECT_SLOPE)
+                _compressorState = CompressorState::SUSPECTED_HEATING;
             else if (_largeSlopeCPerMin > SLOPE_DEADBAND && deltaC >= INIT_DELTA_C)
                 _compressorState = CompressorState::STANDBY_HEATING;
             else if (fabsf(_largeSlopeCPerMin) <= SLOPE_DEADBAND &&
@@ -79,6 +83,7 @@ const char* Status::compressorStateName(CompressorState state)
     switch (state)
     {
         case CompressorState::OFF: return "OFF";
+        case CompressorState::SUSPECTED_HEATING: return "SUSPECTED_HEATING";
         case CompressorState::HEATING: return "HEATING";
         case CompressorState::STANDBY_HEATING: return "STANDBY_HEATING";
         case CompressorState::PLATEAU: return "PLATEAU";
