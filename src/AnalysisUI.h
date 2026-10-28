@@ -19,6 +19,7 @@ private:
     lv_obj_t* _highValue = nullptr;
     lv_obj_t* _ignoreValue = nullptr;
     lv_obj_t* _apply = nullptr;
+    lv_obj_t* _detectLowPower = nullptr;
     int _ignore = 10;
     bool _dirty = false;
     static void changed(lv_event_t* event);
