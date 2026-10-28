@@ -27,6 +27,8 @@ public:
     void recalculate();
     bool loading() const { return _loading; }
     bool autoMode() const { return _auto; }
+    bool detectLowPowerHeating() const { return _detectLowPowerHeating; }
+    void setDetectLowPowerHeating(bool enabled);
     int low() const { return _low; }
     int lowStrength() const { return _low; }
     int highStrength() const { return _high; }
@@ -42,7 +44,10 @@ private:
     History& _history;
     AnalysisEvent* _events = nullptr;
     size_t _head = 0, _count = 0;
-    bool _loading = false, _auto = true, _hasPrevious = false;
+    bool _loading = false, _auto = true, _hasPrevious = false, _detectLowPowerHeating = true;
+    bool _cycleConfirmed = false;
+    CompressorState _candidateType = CompressorState::UNKNOWN;
+    uint8_t _candidateCount = 0;
     int _low = 6, _high = 40, _minDuration = 30; // 30-second ticks: MAINT <=3m, HIGH >=20m
     float _off = 0, _on = 0, _lowPct = 0, _maintPct = 0, _highPct = 0;
     uint32_t _cutoff = 0, _cursor = 0, _previousTime = 0, _lastRecalc = 0;
@@ -55,10 +60,11 @@ private:
     void finish(uint32_t end, const char* reason);
     void feed(uint32_t timestamp, CompressorState state, float delta);
     void feedResolved(uint32_t timestamp, CompressorState state, float delta);
-    struct PendingSample { uint32_t timestamp; float delta; };
-    PendingSample _pending[4] = {};
+    struct PendingSample { uint32_t timestamp; float delta; CompressorState state; };
+    PendingSample _pending[8] = {};
     uint8_t _pendingCount = 0;
     void flushPending(bool confirmed);
+    void resetReconstruction();
     void calibrate();
     int _stampColumn = -1, _largeColumn = -1, _smallColumn = -1, _outdoorColumn = -1, _stateColumn = -1;
     bool _headerChecked = false, _headerValid = false, _historyCelsius = false;
