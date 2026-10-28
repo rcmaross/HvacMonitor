@@ -126,8 +126,8 @@ void Analysis::feed(uint32_t timestamp, CompressorState state, float delta) {
     if (qualifying) {
         if (_candidateType != state) {
             // A different qualifying state cannot contribute to the same three.
-            // Keep at most the last 30 seconds of preceding suspicion.
-            flushPending(false);
+            if (_candidateType != CompressorState::UNKNOWN)
+                flushPending(false);
             _candidateType = state;
         }
         if (_pendingCount < 8) _pending[_pendingCount++] = {timestamp, delta, state};
@@ -140,9 +140,14 @@ void Analysis::feed(uint32_t timestamp, CompressorState state, float delta) {
     }
 
     if (state == CompressorState::SUSPECTED_HEATING) {
-        // Suspected samples cannot interrupt a run of three qualifying samples.
-        flushPending(false);
-        if (_pendingCount < 3) _pending[_pendingCount++] = {timestamp, delta, state};
+        // Suspected readings may precede startup, but interrupt a qualifying run.
+        if (_candidateType != CompressorState::UNKNOWN) flushPending(false);
+        if (_pendingCount == 3) {
+            feedResolved(_pending[0].timestamp, CompressorState::OFF, _pending[0].delta);
+            for (uint8_t i = 1; i < 3; ++i) _pending[i - 1] = _pending[i];
+            --_pendingCount;
+        }
+        _pending[_pendingCount++] = {timestamp, delta, state};
         return;
     }
 
@@ -263,6 +268,7 @@ String Analysis::json() const {
     s += ",\"auto\":" + String(_auto ? "true" : "false");
     s += ",\"low\":" + String(lowStrength()) + ",\"high\":" + String(highStrength());
     s += ",\"minDuration\":" + String(_minDuration);
+    s += ",\"detectLowPowerHeating\":" + String(_detectLowPowerHeating ? "true" : "false");
     s += ",\"off\":" + String(_off, 1) + ",\"on\":" + String(_on, 1);
     s += ",\"lowPercent\":" + String(_lowPct, 1);
     s += ",\"maintPercent\":" + String(_maintPct, 1);
