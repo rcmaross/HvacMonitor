@@ -11,6 +11,7 @@ void Analysis::save() {
     Preferences p;
     p.begin("analysis", false);
     p.putBool("auto", _auto);
+    p.putBool("detectLowPower", _detectLowPowerHeating);
     p.putInt("low", _low);
     p.putInt("high", _high);
     p.putInt("minDuration", _minDuration);
@@ -21,6 +22,7 @@ void Analysis::begin() {
     Preferences p;
     p.begin("analysis", true);
     _auto = p.getBool("auto", true);
+    _detectLowPowerHeating = p.getBool("detectLowPower", true);
     _low = p.getInt("low", 6);
     _high = p.getInt("high", 40);
     _minDuration = p.getInt("minDuration", 30);
@@ -79,33 +81,97 @@ void Analysis::finish(uint32_t end, const char* reason) {
     _sampleCount = 0;
 }
 
-// Each incoming sample belongs to the interval beginning at its timestamp.
-// The previous sample's state accounts for elapsed time until this sample.
+// Candidate startup samples are buffered until three consecutive HEATING
+// or (when enabled) three consecutive STANDBY_HEATING samples confirm a cycle.
+// A confirmed cycle treats every non-OFF state as continuation.
 void Analysis::flushPending(bool confirmed) {
-    for (uint8_t i = 0; i < _pendingCount; ++i)
-        feedResolved(_pending[i].timestamp,
-                     confirmed ? CompressorState::HEATING : CompressorState::OFF,
-                     _pending[i].delta);
+    for (uint8_t i = 0; i < _pendingCount; ++i) {
+        CompressorState state = confirmed
+            ? (_pending[i].state == CompressorState::SUSPECTED_HEATING
+                ? _candidateType : _pending[i].state)
+            : CompressorState::OFF;
+        feedResolved(_pending[i].timestamp, state, _pending[i].delta);
+    }
     _pendingCount = 0;
+    _candidateCount = 0;
+    _candidateType = CompressorState::UNKNOWN;
 }
 
-// The detector is stateless. Hold at most 30 seconds of weak evidence,
-// then either backdate confirmed heating or treat the samples as OFF.
 void Analysis::feed(uint32_t timestamp, CompressorState state, float delta) {
     if (!timestamp || !isfinite(delta) || state == CompressorState::UNKNOWN) {
         flushPending(false);
+        _cycleConfirmed = false;
         feedResolved(timestamp, state, delta);
         return;
     }
-    if (_pendingCount && (timestamp <= _pending[_pendingCount - 1].timestamp ||
-                          timestamp - _pending[0].timestamp > 30))
-        flushPending(false);
-    if (state == CompressorState::SUSPECTED_HEATING) {
-        if (_pendingCount < 4) _pending[_pendingCount++] = {timestamp, delta};
+    if (_cycleConfirmed) {
+        if (state == CompressorState::OFF) {
+            _cycleConfirmed = false;
+            feedResolved(timestamp, state, delta);
+        } else {
+            // SUSPECTED_HEATING is never an OFF gap after confirmation.
+            feedResolved(timestamp, state == CompressorState::SUSPECTED_HEATING
+                ? CompressorState::HEATING : state, delta);
+        }
         return;
     }
-    if (_pendingCount) flushPending(state == CompressorState::HEATING);
-    feedResolved(timestamp, state, delta);
+
+    if (_pendingCount && (timestamp <= _pending[_pendingCount - 1].timestamp ||
+                          timestamp - _pending[_pendingCount - 1].timestamp > 30))
+        flushPending(false);
+
+    const bool qualifying = state == CompressorState::HEATING ||
+        (_detectLowPowerHeating && state == CompressorState::STANDBY_HEATING);
+
+    if (qualifying) {
+        if (_candidateType != state) {
+            // A different qualifying state cannot contribute to the same three.
+            // Keep at most the last 30 seconds of preceding suspicion.
+            flushPending(false);
+            _candidateType = state;
+        }
+        if (_pendingCount < 8) _pending[_pendingCount++] = {timestamp, delta, state};
+        ++_candidateCount;
+        if (_candidateCount >= 3) {
+            flushPending(true);
+            _cycleConfirmed = true;
+        }
+        return;
+    }
+
+    if (state == CompressorState::SUSPECTED_HEATING) {
+        // Suspected samples cannot interrupt a run of three qualifying samples.
+        flushPending(false);
+        if (_pendingCount < 3) _pending[_pendingCount++] = {timestamp, delta, state};
+        return;
+    }
+
+    flushPending(false);
+    feedResolved(timestamp, CompressorState::OFF, delta);
+}
+
+void Analysis::resetReconstruction() {
+    _head = _count = 0;
+    _hasPrevious = false;
+    _sampleCount = 0;
+    _sumDelta = 0;
+    _completed.valid = false;
+    _pendingCount = _candidateCount = 0;
+    _candidateType = CompressorState::UNKNOWN;
+    _cycleConfirmed = false;
+    _lastHistoryTimestamp = _lastLiveTimestamp = 0;
+    _cursor = _cutoff = 0;
+    resetHistoryHeader();
+    _loading = _events && _history.available();
+    if (!_loading) recalculate();
+}
+
+void Analysis::setDetectLowPowerHeating(bool enabled) {
+    if (_detectLowPowerHeating == enabled) return;
+    _detectLowPowerHeating = enabled;
+    save();
+    // Replay raw diagnostic history using the new startup rule.
+    resetReconstruction();
 }
 
 void Analysis::feedResolved(uint32_t timestamp, CompressorState state, float delta) {
