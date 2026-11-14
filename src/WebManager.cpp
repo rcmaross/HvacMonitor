@@ -41,13 +41,13 @@ void WebManager::begin()
 
     _server.on("/settings", HTTP_GET, [this]() { _server.send(200, "text/html", SETTINGS_HTML); });
     _server.on("/api/settings", HTTP_GET, [this]() {
-        _server.send(200, "application/json", String("{\\"zipcode\\":\\"") + _settings.zipcode() + "\\"}");
+        _server.send(200, "application/json", String("{\"zipcode\":\"") + _settings.zipcode() + "\"}");
     });
     _server.on("/api/settings", HTTP_POST, [this]() {
         if (!_server.hasArg("zipcode") || !_settings.setZipcode(_server.arg("zipcode"))) {
             _server.send(400, "text/plain", "ZIP must be five digits"); return;
         }
-        _server.send(200, "application/json", String("{\\"zipcode\\":\\"") + _settings.zipcode() + "\\"}");
+        _server.send(200, "application/json", String("{\"zipcode\":\"") + _settings.zipcode() + "\"}");
     });
     _server.on("/status", HTTP_GET, [this]()
     {
