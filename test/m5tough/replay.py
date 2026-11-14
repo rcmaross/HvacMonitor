@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Replay HVAC CSV or interactively set simulator temperatures over USB serial."""
+"""Replay HVAC CSV or interactively set simulator temperatures and current over USB serial."""
 import argparse
 import csv
 from datetime import datetime
@@ -26,10 +26,10 @@ def send(port, temps):
 
 
 def manual(port, stop):
-    temps = [75.0, 75.0, 75.0]
-    names = {"l": 0, "s": 1, "o": 2}
-    print("Manual mode (F): l:75  s:95  o:70 | show | quit")
-    print("Starting with all temperatures at 75 F.")
+    temps = [75.0, 75.0, 0.0]
+    names = {"l": 0, "s": 1, "a": 2}
+    print("Manual mode (F): l:75  s:95  a:20 | show | quit")
+    print("Starting with both temperatures at 75 F and current at 0 A.")
     send(port, temps)
     last_refresh = time.monotonic()
 
@@ -62,28 +62,28 @@ def manual(port, stop):
             print(
                 f"Large={temps[0]:.1f} F  "
                 f"Small={temps[1]:.1f} F  "
-                f"Outside={temps[2]:.1f} F"
+                f"Current={temps[2]:.1f} A"
             )
             continue
 
         if ":" not in command:
-            print("Use l:75, s:95, o:70, show, or quit")
+            print("Use l:75, s:95, a:20, show, or quit")
             continue
 
         key, value = (part.strip() for part in command.split(":", 1))
 
         if key not in names:
-            print("Unknown sensor. Use l, s, or o.")
+            print("Unknown input. Use l, s, or a.")
             continue
 
         try:
             number = float(value)
         except ValueError:
-            print("Invalid temperature")
+            print("Invalid numeric value")
             continue
 
-        if not math.isfinite(number) or not -20 <= number <= 200:
-            print("Temperature must be between -20 and 200 F")
+        if not math.isfinite(number) or not (0 <= number <= 100 if key == "a" else -20 <= number <= 200):
+            print("Current must be 0..100 A" if key == "a" else "Temperature must be -20..200 F")
             continue
 
         temps[names[key]] = number
@@ -94,8 +94,8 @@ def replay(port, args, stop):
     with open(args.csv_file, newline="") as stream:
         rows = csv.DictReader(stream)
 
-        if not {"large", "small", "outside"}.issubset(rows.fieldnames or []):
-            raise ValueError("CSV requires large,small,outside columns")
+        if not {"large", "small", "current"}.issubset(rows.fieldnames or []):
+            raise ValueError("CSV requires large,small,current columns")
 
         previous = None
         sent_count = 0
@@ -106,10 +106,14 @@ def replay(port, args, stop):
             try:
                 temps = [
                     float(row[name])
-                    for name in ("large", "small", "outside")
+                    for name in ("large", "small", "current")
                 ]
             except (ValueError, TypeError):
                 print("Skipping row with missing/invalid temperature:", row)
+                continue
+
+            if not all(math.isfinite(x) for x in temps) or not all(-20 <= x <= 200 for x in temps[:2]) or not 0 <= temps[2] <= 100:
+                print("Skipping row with out-of-range values:", row)
                 continue
 
             now = timestamp(row.get("timestamp", ""))
@@ -138,7 +142,7 @@ def replay(port, args, stop):
                     return
 
             if args.units == "C":
-                temps = [x * 1.8 + 32 for x in temps]
+                temps[:2] = [x * 1.8 + 32 for x in temps[:2]]
 
             print(row.get("timestamp", ""), end=" ", flush=True)
             send(port, temps)
@@ -156,7 +160,7 @@ def main():
     )
     p.add_argument(
         "--manual", action="store_true",
-        help="Interactive l:75 / s:95 / o:70 commands"
+        help="Interactive l:75 / s:95 / a:20 commands"
     )
     p.add_argument(
         "--port", required=True,
@@ -164,7 +168,7 @@ def main():
     )
     p.add_argument(
         "--units", choices=["F", "C"], default="F",
-        help="Units in history CSV (default: F)"
+        help="Temperature units in CSV (default: F); current always amps"
     )
     p.add_argument(
         "--interval", type=float, default=10.0,
