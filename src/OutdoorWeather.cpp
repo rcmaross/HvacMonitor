@@ -30,7 +30,7 @@ bool getJson(const String& url, JsonDocument& doc) {
         return false;
     }
     if (doc["error"].as<bool>()) {
-        Serial.printf("Weather API error: %s\\n", doc["reason"].as<const char*>() | "unknown");
+        Serial.printf("Weather API error: %s\\n", doc["reason"] | "unknown");
         return false;
     }
     return true;
