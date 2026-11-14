@@ -6,7 +6,8 @@
 class TextEntryUI
 {
 public:
-    using CompleteCallback = void (*)(const String& text, void* userData);
+    using CompleteCallback = void (*)(const String& text, void* userData,
+                bool numericMode = false);
     using CancelCallback = void (*)(void* userData);
 
     TextEntryUI(const char* title,
