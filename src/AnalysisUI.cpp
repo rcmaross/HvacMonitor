@@ -45,10 +45,20 @@ AnalysisUI::AnalysisUI(lv_obj_t* parent, Analysis& analysis) : _analysis(analysi
     button(_root, "MIN -10s", decrement, this);
     button(_root, "MIN +10s", increment, this);
     _apply = button(_root, "Recalculate", apply, this);
+    lv_obj_t* separator = lv_obj_create(_root);
+    lv_obj_set_size(separator, LV_PCT(100), 2);
+    lv_obj_set_style_bg_color(separator, lv_color_hex(0x667680), 0);
+    lv_obj_set_style_border_width(separator, 0, 0);
+    lv_obj_set_style_pad_all(separator, 0, 0);
+    label(_root, "Advanced");
+    label(_root, "Detect low-power heating");
+    _detectLowPower = lv_switch_create(_root);
+    lv_obj_add_event_cb(_detectLowPower, changed, LV_EVENT_VALUE_CHANGED, this);
     _ignore = _analysis.minDuration();
     lv_slider_set_value(_low, _analysis.lowStrength(), LV_ANIM_OFF);
     lv_slider_set_value(_high, _analysis.highStrength(), LV_ANIM_OFF);
     if (_analysis.autoMode()) lv_obj_add_state(_auto, LV_STATE_CHECKED);
+    if (_analysis.detectLowPowerHeating()) lv_obj_add_state(_detectLowPower, LV_STATE_CHECKED);
     update();
 }
 AnalysisUI::~AnalysisUI() { if (_root) lv_obj_delete(_root); }
@@ -73,6 +83,7 @@ void AnalysisUI::apply(lv_event_t* event) {
     ui->_analysis.setAuto(autoMode);
     if (!autoMode) ui->_analysis.setStrengthThresholds(lv_slider_get_value(ui->_low), lv_slider_get_value(ui->_high));
     ui->_analysis.setMinDuration(ui->_ignore);
+    ui->_analysis.setDetectLowPowerHeating(lv_obj_has_state(ui->_detectLowPower, LV_STATE_CHECKED));
     ui->_analysis.recalculate();
     ui->_dirty = false;
     ui->update();
@@ -111,6 +122,8 @@ void AnalysisUI::update() {
         lv_slider_set_value(_low, _analysis.lowStrength(), LV_ANIM_OFF);
         lv_slider_set_value(_high, _analysis.highStrength(), LV_ANIM_OFF);
         _ignore = _analysis.minDuration();
+        if (_analysis.detectLowPowerHeating()) lv_obj_add_state(_detectLowPower, LV_STATE_CHECKED);
+        else lv_obj_remove_state(_detectLowPower, LV_STATE_CHECKED);
     }
     char buf[48];
     snprintf(buf, sizeof(buf), "%ld", (long)lv_slider_get_value(_low));

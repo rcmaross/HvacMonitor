@@ -7,7 +7,7 @@ main{max-width:620px;margin:auto}.stats{display:grid;grid-template-columns:repea
 strong{display:block;font-size:25px;margin-top:4px}.levels{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:14px 0;text-align:center}
 .levels strong{font-size:clamp(13px,2.8vw,20px);white-space:nowrap}section{margin-top:16px}label{display:block;margin:12px 0}@media(max-height:450px) and (orientation:landscape){body{padding:6px 12px}h2{margin:4px 0 8px}.card{padding:6px}strong{font-size:22px}.levels{margin:8px 0}}
 input[type=range]{width:100%}button{background:#354650;color:white;border:1px solid #667680;border-radius:5px;padding:10px 18px}
-button:disabled{opacity:.4}#loading{color:#e2b44f}
+button:disabled{opacity:.4}.advanced{border-top:1px solid #667680;padding-top:8px;margin-top:18px}.advanced h3{font-size:16px;font-weight:normal;margin:4px 0}#loading{color:#e2b44f}
 </style></head><body><main>
 <h2>Analysis <small>Last 24h</small></h2>
 <div id="loading"></div>
@@ -18,7 +18,8 @@ button:disabled{opacity:.4}#loading{color:#e2b44f}
 <label>LOW / HIGH: <span id="hv"></span><input id="high" type="range" min="1" max="100" step="1"></label>
 <label>MIN Duration: <span id="iv"></span> seconds
 <button id="minus" type="button">−</button><button id="plus" type="button">+</button></label>
-<button id="apply" type="button">Recalculate</button></section></main>
+<button id="apply" type="button">Recalculate</button></section>
+<section class="advanced"><h3>Advanced</h3><label><input id="detectLowPower" type="checkbox"> Detect low-power heating</label></section></main>
 <script>
 const el=id=>document.getElementById(id);
 let initialized=false,dirty=false;
@@ -30,7 +31,7 @@ async function refresh(){
   for(const [id,key] of [['off','off'],['on','on']])el(id).textContent=pct(d[key]);
   for(const [id,key] of [['mp','maintPercent'],['lp','lowPercent'],['hp','highPercent']])el(id).textContent=pct(d[key])+' ('+pct(d[key]*d.on/100)+')';
   if(!initialized||!dirty){
-   el('auto').checked=d.auto;el('low').value=d.low;el('high').value=d.high;el('iv').textContent=d.minDuration;initialized=true;
+   el('auto').checked=d.auto;el('detectLowPower').checked=d.detectLowPowerHeating;el('low').value=d.low;el('high').value=d.high;el('iv').textContent=d.minDuration;initialized=true;
   }
   el('low').disabled=el('high').disabled=el('auto').checked;
   el('lv').textContent=el('low').value;
@@ -38,11 +39,11 @@ async function refresh(){
   el('apply').disabled=d.loading;
  }catch(e){el('loading').textContent='Unable to load analysis';}
 }
-for(const id of ['auto','low','high'])el(id).addEventListener('input',()=>{dirty=true;el('low').disabled=el('high').disabled=el('auto').checked;el('lv').textContent=el('low').value;el('hv').textContent=el('high').value});
+for(const id of ['auto','low','high','detectLowPower'])el(id).addEventListener('input',()=>{dirty=true;el('low').disabled=el('high').disabled=el('auto').checked;el('lv').textContent=el('low').value;el('hv').textContent=el('high').value});
 el('minus').onclick=()=>{el('iv').textContent=Math.max(0,+el('iv').textContent-10);dirty=true};
 el('plus').onclick=()=>{el('iv').textContent=Math.min(120,+el('iv').textContent+10);dirty=true};
 el('apply').onclick=async()=>{
- const p=new URLSearchParams({auto:String(el('auto').checked),minDuration:el('iv').textContent});
+ const p=new URLSearchParams({auto:String(el('auto').checked),minDuration:el('iv').textContent,detectLowPowerHeating:String(el('detectLowPower').checked)});
  if(!el('auto').checked){p.set('low',el('low').value);p.set('high',el('high').value)}
  const r=await fetch('/api/analysis/config',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:p});
  if(!r.ok){alert(await r.text());return}dirty=false;refresh();
