@@ -11,6 +11,7 @@ bool getJson(const String& url, JsonDocument& doc) {
     http.setTimeout(4000);
     if (!http.begin(client, url)) return false;
     int code = http.GET();
+    if (code != HTTP_CODE_OK) Serial.printf("Weather HTTP failed (%d): %s\\n", code, url.c_str());
     bool ok = code == HTTP_CODE_OK && deserializeJson(doc, http.getStream()) == DeserializationError::Ok;
     http.end();
     return ok;
@@ -24,6 +25,7 @@ bool OutdoorWeather::resolveZip(const String& zipcode) {
     _lat = String(places[0]["latitude"].as<const char*>()).toFloat();
     _lon = String(places[0]["longitude"].as<const char*>()).toFloat();
     _resolvedZip = zipcode;
+    Serial.printf("Weather ZIP %s -> %.5f, %.5f\\n", zipcode.c_str(), _lat, _lon);
     return isfinite(_lat) && isfinite(_lon);
 }
 bool OutdoorWeather::fetchTemperature() {
@@ -33,6 +35,7 @@ bool OutdoorWeather::fetchTemperature() {
     if (!getJson(url, doc)) return false;
     if (!doc["current"]["temperature_2m"].is<float>() && !doc["current"]["temperature_2m"].is<double>()) return false;
     _temperatureC = doc["current"]["temperature_2m"].as<float>();
+    Serial.printf("Weather outdoor temperature: %.2f C\\n", _temperatureC);
     return isfinite(_temperatureC);
 }
 void OutdoorWeather::update(const String& zipcode, bool connected) {
@@ -48,6 +51,9 @@ void OutdoorWeather::update(const String& zipcode, bool connected) {
     if (_attempted && now - _lastAttempt < (isfinite(_temperatureC) ? 900000UL : 60000UL)) return;
     _attempted = true;
     _lastAttempt = now;
-    if (_resolvedZip != zipcode && !resolveZip(zipcode)) return;
-    fetchTemperature();
+    if (_resolvedZip != zipcode && !resolveZip(zipcode)) {
+        Serial.printf("Weather ZIP lookup failed: %s\\n", zipcode.c_str());
+        return;
+    }
+    if (!fetchTemperature()) Serial.println("Weather temperature fetch/parse failed");
 }
