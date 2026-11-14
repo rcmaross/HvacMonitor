@@ -27,7 +27,8 @@ private:
 
     TemperatureRow _large;
     TemperatureRow _small;
-    TemperatureRow _outdoor;
+    lv_obj_t* _outdoorValue = nullptr;
+    lv_obj_t* _currentValue = nullptr;
 
     lv_obj_t* _scaleBar = nullptr;
     lv_obj_t* _scaleMin = nullptr;
@@ -56,7 +57,6 @@ private:
 
     void updateScale(
         float large,
-        float small,
-        float outdoor
+        float small
     );
 };

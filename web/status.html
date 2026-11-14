@@ -119,6 +119,9 @@
             );
         }
 
+.readings { display:flex; justify-content:space-between; gap:16px; margin-top:28px; font-size:18px; }
+        .readings span:first-child { color:#2196F3; }
+        .readings strong { color:#F2F4F5; }
         .status {
             text-align: center;
             margin-top: 32px;
@@ -160,17 +163,7 @@
             <div id="small-value" class="value">--.-</div>
         </div>
 
-        <div class="temperature-row">
-            <div class="name outdoor">OUTDOOR</div>
-
-            <div class="track">
-                <div id="outdoor-marker" class="marker outdoor"></div>
-            </div>
-
-            <div id="outdoor-value" class="value">--.-</div>
-        </div>
-
-        <div class="scale-row">
+<div class="scale-row">
             <div></div>
 
             <div class="scale">
@@ -183,6 +176,8 @@
 
             <div></div>
         </div>
+
+<div class="readings"><span>OUTSIDE <strong id="outdoor-value">--.-</strong></span><span>CURRENT <strong id="current-value">--.-- A</strong></span></div>
 
         <div id="system-status" class="status">
             System status unavailable
@@ -259,13 +254,8 @@ async function updateStatus()
             data.scaleMax
         );
 
-        setTemperature(
-            "outdoor-value",
-            "outdoor-marker",
-            data.outdoor,
-            data.scaleMin,
-            data.scaleMax
-        );
+        document.getElementById("outdoor-value").textContent = data.outdoor == null ? "--.-" : data.outdoor.toFixed(1);
+        document.getElementById("current-value").textContent = data.current == null ? "--.-- A" : data.current.toFixed(2) + " A";
 
     }
     catch (error) {

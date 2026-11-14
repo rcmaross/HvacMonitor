@@ -13,6 +13,7 @@ namespace
     constexpr int NTP_Y = 64;
     constexpr int TIMEZONE_Y = 94;
     constexpr int UNITS_Y = 124;
+    constexpr int ZIP_Y = 154;
 
     const lv_color_t BACKGROUND = lv_color_hex(0x101418);
     const lv_color_t PRIMARY_TEXT = lv_color_hex(0xF2F4F5);
@@ -105,6 +106,15 @@ SettingsUI::SettingsUI(
         this
     );
 
+    createLabel("ZIP", ZIP_Y + 7);
+    _zipInput = lv_textarea_create(_root);
+    lv_obj_set_size(_zipInput, VALUE_WIDTH, 27);
+    lv_obj_set_pos(_zipInput, VALUE_X, ZIP_Y);
+    lv_textarea_set_one_line(_zipInput, true);
+    lv_textarea_set_max_length(_zipInput, 5);
+    lv_textarea_set_accepted_chars(_zipInput, "0123456789");
+    lv_textarea_set_text(_zipInput, _settings.zipcode().c_str());
+    lv_obj_add_event_cb(_zipInput, zipcodeChanged, LV_EVENT_VALUE_CHANGED, this);
     updateControls();
     updateDateTime();
 }
@@ -261,4 +271,9 @@ void SettingsUI::timezoneClicked(lv_event_t* event)
 
     ui->updateControls();
     ui->updateDateTime();
+}
+void SettingsUI::zipcodeChanged(lv_event_t* event)
+{
+    auto* ui = static_cast<SettingsUI*>(lv_event_get_user_data(event));
+    ui->_settings.setZipcode(lv_textarea_get_text(ui->_zipInput));
 }
