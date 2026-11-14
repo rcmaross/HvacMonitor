@@ -31,12 +31,13 @@ bool OutdoorWeather::fetchTemperature() {
     String url = "https://api.open-meteo.com/v1/forecast?latitude=" + String(_lat, 5)
        + "&longitude=" + String(_lon, 5) + "&current=temperature_2m&temperature_unit=celsius";
     if (!getJson(url, doc)) return false;
-    if (!doc["current"]["temperature_2m"].is<float>()) return false;
+    if (!doc["current"]["temperature_2m"].is<float>() && !doc["current"]["temperature_2m"].is<double>()) return false;
     _temperatureC = doc["current"]["temperature_2m"].as<float>();
     return isfinite(_temperatureC);
 }
 void OutdoorWeather::update(const String& zipcode, bool connected) {
-    if (zipcode != _resolvedZip) {
+    if (zipcode != _requestedZip) {
+        _requestedZip = zipcode;
         _temperatureC = NAN;
         _lat = _lon = NAN;
         _resolvedZip = "";
