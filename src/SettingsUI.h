@@ -39,6 +39,8 @@ private:
     lv_obj_t* _unitsButton = nullptr;
     lv_obj_t* _unitsLabel = nullptr;
     lv_obj_t* _zipInput = nullptr;
+    lv_obj_t* _zipKeyboard = nullptr;
+    static void zipcodeFocus(lv_event_t* event);
     static void zipcodeChanged(lv_event_t* event);
 
     void createLabel(const char* text, int y);
