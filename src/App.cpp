@@ -95,7 +95,7 @@ void App::begin()
     _ota->begin();
 
 
-    _web = new WebManager(*_status, *_history, *_analysis);
+    _web = new WebManager(*_status, *_history, *_analysis, *_settings);
     _web->begin();
 
     _clock = new Clock(*_settings, *_network);
