@@ -4,16 +4,15 @@
 #include <string.h>
 
 namespace {
-constexpr uint8_t LARGE_PIN=25, SMALL_PIN=26, OUTSIDE_PIN=19, PWM_CHANNEL=0;
+constexpr uint8_t LARGE_PIN=25, SMALL_PIN=26, CURRENT_PIN=19, PWM_CHANNEL=0;
 constexpr uint32_t STALE_MS=30000;
 constexpr float VCC=3.3f, R_FIXED=10000.0f, R_25=10000.0f, BETA=3950.0f, T_25_K=298.15f;
 
 float calibrateF(float requestedF,int channel) {
     static constexpr float commanded[]={65.0f,90.0f,120.0f};
-    static constexpr float measured[3][3]={
+    static constexpr float measured[2][3]={
         {72.1f,96.7f,128.7f},
-        {72.8f,98.6f,130.6f},
-        {70.9f,96.7f,130.6f}
+        {72.8f,98.6f,130.6f}
     };
     const float* readings=measured[channel];
     const int segment=requestedF<=readings[1]?0:1;
@@ -36,7 +35,7 @@ uint8_t to8bit(float voltage) {
 void SensorSimulator::begin(Status& status) {
     _status = &status;
     // Outputs are enabled only when replay sends its first valid F command.
-    Serial.println("READY HvacMonitor replay: F,largeF,smallF,outsideF");
+    Serial.println("READY HvacMonitor replay: F,largeF,smallF,currentA");
 }
 void SensorSimulator::setZero() {
     dacWrite(LARGE_PIN,0);
@@ -45,7 +44,7 @@ void SensorSimulator::setZero() {
 }
 void SensorSimulator::process(char* line) {
     if(strncmp(line,"F,",2)!=0) {
-        Serial.println("ERR expected F,large,small,outside");
+        Serial.println("ERR expected F,large,small,current");
         return;
     }
     float f[3];
@@ -53,8 +52,8 @@ void SensorSimulator::process(char* line) {
     for(int i=0;i<3;++i) {
         char* end=nullptr;
         f[i]=strtof(p,&end);
-        if(end==p||!isfinite(f[i])||f[i]<-20.0f||f[i]>200.0f) {
-            Serial.println("ERR invalid temperature (-20..200 F)");
+        if(end==p||!isfinite(f[i])||(i==2 ? (f[i]<0.0f||f[i]>100.0f) : (f[i]<-20.0f||f[i]>200.0f))) {
+            Serial.println("ERR invalid input (temperatures -20..200 F, current 0..100 A)");
             return;
         }
         if(i<2) {
@@ -68,11 +67,11 @@ void SensorSimulator::process(char* line) {
     const uint8_t v[3]={
         to8bit(voltageForF(calibrateF(f[0],0))),
         to8bit(voltageForF(calibrateF(f[1],1))),
-        to8bit(voltageForF(calibrateF(f[2],2)))
+        to8bit(VCC*f[2]/100.0f)
     };
     if(!_initialized) {
         ledcSetup(PWM_CHANNEL,5000,8);
-        ledcAttachPin(OUTSIDE_PIN,PWM_CHANNEL);
+        ledcAttachPin(CURRENT_PIN,PWM_CHANNEL);
         _initialized=true;
     }
     dacWrite(LARGE_PIN,v[0]);
@@ -115,7 +114,7 @@ void SensorSimulator::reportTemperatures() {
     const float f[3] = {
         _status->largePipeTemperature() * 1.8f + 32.0f,
         _status->smallPipeTemperature() * 1.8f + 32.0f,
-        _status->outdoorTemperature() * 1.8f + 32.0f
+        _status->currentAmps()
     };
     int current[3];
     bool changed = false;
