@@ -115,12 +115,20 @@ SettingsUI::SettingsUI(
     lv_textarea_set_accepted_chars(_zipInput, "0123456789");
     lv_textarea_set_text(_zipInput, _settings.zipcode().c_str());
     lv_obj_add_event_cb(_zipInput, zipcodeChanged, LV_EVENT_VALUE_CHANGED, this);
+    lv_obj_add_event_cb(_zipInput, zipcodeFocus, LV_EVENT_FOCUSED, this);
+    _zipKeyboard = lv_keyboard_create(lv_screen_active());
+    lv_keyboard_set_mode(_zipKeyboard, LV_KEYBOARD_MODE_NUMBER);
+    lv_obj_set_size(_zipKeyboard, 320, 125);
+    lv_obj_align(_zipKeyboard, LV_ALIGN_BOTTOM_MID, 0, 0);
+    lv_keyboard_set_textarea(_zipKeyboard, _zipInput);
+    lv_obj_add_flag(_zipKeyboard, LV_OBJ_FLAG_HIDDEN);
     updateControls();
     updateDateTime();
 }
 
 SettingsUI::~SettingsUI()
 {
+    if (_zipKeyboard) { lv_obj_delete(_zipKeyboard); _zipKeyboard = nullptr; }
     if (_root)
     {
         lv_obj_delete(_root);
@@ -276,4 +284,10 @@ void SettingsUI::zipcodeChanged(lv_event_t* event)
 {
     auto* ui = static_cast<SettingsUI*>(lv_event_get_user_data(event));
     ui->_settings.setZipcode(lv_textarea_get_text(ui->_zipInput));
+}
+
+void SettingsUI::zipcodeFocus(lv_event_t* event)
+{
+    auto* ui = static_cast<SettingsUI*>(lv_event_get_user_data(event));
+    lv_obj_remove_flag(ui->_zipKeyboard, LV_OBJ_FLAG_HIDDEN);
 }
