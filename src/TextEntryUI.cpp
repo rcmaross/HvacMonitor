@@ -5,7 +5,8 @@ TextEntryUI::TextEntryUI(const char* title,
                          bool passwordMode,
                          CompleteCallback completeCallback,
                          CancelCallback cancelCallback,
-                         void* userData)
+                         void* userData,
+                         bool numericMode)
     : _completeCallback(completeCallback),
       _cancelCallback(cancelCallback),
       _userData(userData)
@@ -76,6 +77,11 @@ TextEntryUI::TextEntryUI(const char* title,
     lv_obj_set_size(_keyboard, 312, 158);
     lv_obj_align(_keyboard, LV_ALIGN_BOTTOM_MID, 0, 0);
 
+    if (numericMode) {
+        lv_keyboard_set_mode(_keyboard, LV_KEYBOARD_MODE_NUMBER);
+        lv_textarea_set_accepted_chars(_textArea, "0123456789");
+        lv_textarea_set_max_length(_textArea, 5);
+    }
     lv_keyboard_set_textarea(_keyboard, _textArea);
 
     lv_obj_add_event_cb(_keyboard, keyboardReady, LV_EVENT_READY, this);
