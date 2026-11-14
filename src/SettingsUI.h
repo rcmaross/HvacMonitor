@@ -42,6 +42,7 @@ private:
     lv_obj_t* _zipKeyboard = nullptr;
     static void zipcodeFocus(lv_event_t* event);
     static void zipcodeChanged(lv_event_t* event);
+    static void zipcodeKeyboardDone(lv_event_t* event);
 
     void createLabel(const char* text, int y);
     lv_obj_t* createButton(int y, int width);
