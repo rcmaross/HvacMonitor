@@ -9,7 +9,7 @@
 // Do not connect a 5V signal to any target input.
 static constexpr uint8_t LARGE_PIN = 25;
 static constexpr uint8_t SMALL_PIN = 26;
-static constexpr uint8_t OUTSIDE_PIN = 19;
+static constexpr uint8_t CURRENT_PIN = 19;
 static constexpr uint8_t PWM_CHANNEL = 0;
 static constexpr uint32_t BAUD = 115200;
 static constexpr uint32_t STALE_MS = 30000;
@@ -35,11 +35,11 @@ static void drawScreen() {
     lcd.setCursor(8, 10);
     lcd.println("HVAC Simulator");
     lcd.setTextSize(3);
-    const char* names[3] = {"Large", "Small", "Outside"};
+    const char* names[3] = {"Large", "Small", "Current"};
     for (int i = 0; i < 3; ++i) {
         lcd.setCursor(8, 55 + i * 48);
         if (isnan(displayedF[i])) lcd.printf("%s: --", names[i]);
-        else lcd.printf("%s: %.1f F", names[i], displayedF[i]);
+        else lcd.printf("%s: %.1f %s", names[i], displayedF[i], i == 2 ? "A" : "F");
     }
     lcd.setTextSize(2);
     lcd.setCursor(8, 212);
@@ -51,10 +51,9 @@ static float calibrateF(float requestedF, int channel) {
         65.0f, 90.0f, 120.0f
     };
 
-    static constexpr float measured[3][3] = {
+    static constexpr float measured[2][3] = {
         {72.1f, 96.7f, 128.7f},  // Large
-        {72.8f, 98.6f, 130.6f},  // Small
-        {70.9f, 96.7f, 130.6f}   // Outdoor
+        {72.8f, 98.6f, 130.6f}   // Small
     };
 
     const float* readings = measured[channel];
@@ -90,9 +89,9 @@ static void setZero() {
 }
 
 static void process(char* line) {
-    // Command: F,<large F>,<small F>,<outside F>
+    // Command: F,<large F>,<small F>,<current A>
     if (strncmp(line, "F,", 2) != 0) {
-        Serial.println("ERR expected F,large,small,outside");
+        Serial.println("ERR expected F,large,small,current");
         return;
     }
     float f[3];
@@ -100,8 +99,8 @@ static void process(char* line) {
     for (int i = 0; i < 3; ++i) {
         char* end = nullptr;
         f[i] = strtof(p, &end);
-        if (end == p || !isfinite(f[i]) || f[i] < -20.0f || f[i] > 200.0f) {
-            Serial.println("ERR invalid temperature (-20..200 F)");
+        if (end == p || !isfinite(f[i]) || (i == 2 ? (f[i] < 0.0f || f[i] > 100.0f) : (f[i] < -20.0f || f[i] > 200.0f))) {
+            Serial.println("ERR invalid input (temperatures -20..200 F, current 0..100 A)");
             return;
         }
         if (i < 2) {
@@ -116,7 +115,7 @@ static void process(char* line) {
     uint8_t v[3] = {
         to8bit(voltageForF(calibrateF(f[0], 0))),
         to8bit(voltageForF(calibrateF(f[1], 1))),
-        to8bit(voltageForF(calibrateF(f[2], 2)))
+        to8bit(VCC * f[2] / 100.0f)
     };    
     dacWrite(LARGE_PIN, v[0]);
     dacWrite(SMALL_PIN, v[1]);
@@ -140,7 +139,7 @@ void setup() {
     ledcAttachPin(OUTSIDE_PIN, PWM_CHANNEL);
     setZero();
     drawScreen();
-    Serial.println("READY M5Tough HVAC simulator: F,largeF,smallF,outsideF");
+    Serial.println("READY M5Tough HVAC simulator: F,largeF,smallF,currentA");
 }
 
 void loop() {
