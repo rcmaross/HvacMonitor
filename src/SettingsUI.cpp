@@ -34,7 +34,7 @@ SettingsUI::SettingsUI(
     lv_obj_set_style_bg_opa(_root, LV_OPA_COVER, 0);
     lv_obj_set_style_border_width(_root, 0, 0);
     lv_obj_set_style_pad_all(_root, 0, 0);
-    lv_obj_set_scrollable(_root, false);
+    lv_obj_set_scrollable(_root, true);
 
     //
     // Date
