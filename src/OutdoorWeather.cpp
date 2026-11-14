@@ -6,15 +6,34 @@
 namespace {
 bool getJson(const String& url, JsonDocument& doc) {
     WiFiClientSecure client;
-    client.setInsecure(); // TODO: replace with CA validation before production.
+    client.setInsecure(); // TODO: use certificate validation in production.
     HTTPClient http;
-    http.setTimeout(4000);
-    if (!http.begin(client, url)) return false;
+    http.setTimeout(6000);
+    if (!http.begin(client, url)) {
+        Serial.printf("Weather HTTP begin failed: %s\\n", url.c_str());
+        return false;
+    }
     int code = http.GET();
-    if (code != HTTP_CODE_OK) Serial.printf("Weather HTTP failed (%d): %s\\n", code, url.c_str());
-    bool ok = code == HTTP_CODE_OK && deserializeJson(doc, http.getStream()) == DeserializationError::Ok;
+    if (code != HTTP_CODE_OK) {
+        Serial.printf("Weather HTTP error %d: %s\\n", code, url.c_str());
+        http.end();
+        return false;
+    }
+    // Parse the response body, not the underlying HTTP stream.
+    String payload = http.getString();
     http.end();
-    return ok;
+    DeserializationError error = deserializeJson(doc, payload);
+    if (error) {
+        Serial.printf("Weather JSON error: %s (length=%u)\\n", error.c_str(),
+                      static_cast<unsigned>(payload.length()));
+        Serial.printf("Weather response: %.200s\\n", payload.c_str());
+        return false;
+    }
+    if (doc["error"].as<bool>()) {
+        Serial.printf("Weather API error: %s\\n", doc["reason"].as<const char*>() | "unknown");
+        return false;
+    }
+    return true;
 }
 }
 bool OutdoorWeather::resolveZip(const String& zipcode) {
@@ -33,8 +52,12 @@ bool OutdoorWeather::fetchTemperature() {
     String url = "https://api.open-meteo.com/v1/forecast?latitude=" + String(_lat, 5)
        + "&longitude=" + String(_lon, 5) + "&current=temperature_2m&temperature_unit=celsius";
     if (!getJson(url, doc)) return false;
-    if (!doc["current"]["temperature_2m"].is<float>() && !doc["current"]["temperature_2m"].is<double>()) return false;
-    _temperatureC = doc["current"]["temperature_2m"].as<float>();
+    JsonVariant temp = doc["current"]["temperature_2m"];
+    if (temp.isNull()) {
+        Serial.println("Weather response missing current.temperature_2m");
+        return false;
+    }
+    _temperatureC = temp.as<float>();
     Serial.printf("Weather outdoor temperature: %.2f C\\n", _temperatureC);
     return isfinite(_temperatureC);
 }
