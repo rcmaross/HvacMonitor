@@ -107,30 +107,17 @@ SettingsUI::SettingsUI(
     );
 
     createLabel("ZIP", ZIP_Y + 7);
-    _zipInput = lv_textarea_create(_root);
-    lv_obj_set_size(_zipInput, VALUE_WIDTH, 27);
-    lv_obj_set_pos(_zipInput, VALUE_X, ZIP_Y);
-    lv_textarea_set_one_line(_zipInput, true);
-    lv_textarea_set_max_length(_zipInput, 5);
-    lv_textarea_set_accepted_chars(_zipInput, "0123456789");
-    lv_textarea_set_text(_zipInput, _settings.zipcode().c_str());
-    lv_obj_add_event_cb(_zipInput, zipcodeChanged, LV_EVENT_VALUE_CHANGED, this);
-    lv_obj_add_event_cb(_zipInput, zipcodeFocus, LV_EVENT_FOCUSED, this);
-    _zipKeyboard = lv_keyboard_create(lv_screen_active());
-    lv_keyboard_set_mode(_zipKeyboard, LV_KEYBOARD_MODE_NUMBER);
-    lv_obj_set_size(_zipKeyboard, 320, 125);
-    lv_obj_add_event_cb(_zipKeyboard, zipcodeKeyboardDone, LV_EVENT_READY, this);
-    lv_obj_add_event_cb(_zipKeyboard, zipcodeKeyboardDone, LV_EVENT_CANCEL, this);
-    lv_obj_align(_zipKeyboard, LV_ALIGN_BOTTOM_MID, 0, 0);
-    lv_keyboard_set_textarea(_zipKeyboard, _zipInput);
-    lv_obj_set_hidden(_zipKeyboard, true);
+    _zipButton = createButton(ZIP_Y, VALUE_WIDTH);
+    _zipLabel = lv_label_create(_zipButton);
+    lv_obj_center(_zipLabel);
+    lv_obj_add_event_cb(_zipButton, zipcodeClicked, LV_EVENT_CLICKED, this);
     updateControls();
     updateDateTime();
 }
 
 SettingsUI::~SettingsUI()
 {
-    if (_zipKeyboard) { lv_obj_delete(_zipKeyboard); _zipKeyboard = nullptr; }
+    closeZipEditor();
     if (_root)
     {
         lv_obj_delete(_root);
@@ -203,6 +190,7 @@ void SettingsUI::updateDateTime()
 
 void SettingsUI::updateControls()
 {
+    lv_label_set_text(_zipLabel, _settings.zipcode().isEmpty() ? "Set ZIP code" : _settings.zipcode().c_str());
     if (_settings.ntpEnabled())
         lv_obj_add_state(_ntpSwitch, LV_STATE_CHECKED);
     else
@@ -282,23 +270,36 @@ void SettingsUI::timezoneClicked(lv_event_t* event)
     ui->updateControls();
     ui->updateDateTime();
 }
-void SettingsUI::zipcodeChanged(lv_event_t* event)
+void SettingsUI::zipcodeClicked(lv_event_t* event)
 {
     auto* ui = static_cast<SettingsUI*>(lv_event_get_user_data(event));
-    ui->_settings.setZipcode(lv_textarea_get_text(ui->_zipInput));
+    ui->closeZipEditor();
+    ui->_zipEditor = new TextEntryUI("ZIP code", ui->_settings.zipcode(), false,
+                                     zipcodeEntered, zipcodeCancelled, ui, true);
 }
 
-void SettingsUI::zipcodeFocus(lv_event_t* event)
+void SettingsUI::zipcodeEntered(const String& text, void* userData)
 {
-    auto* ui = static_cast<SettingsUI*>(lv_event_get_user_data(event));
-    lv_obj_set_hidden(ui->_zipKeyboard, false);
-    // Scroll the ZIP input into the visible portion above the keyboard.
-    lv_obj_scroll_to_y(ui->_root, ZIP_Y - 20, LV_ANIM_OFF);
+    auto* ui = static_cast<SettingsUI*>(userData);
+    if (ui->_settings.setZipcode(text)) {
+        Serial.printf("ZIP saved: %s\\n", text.c_str());
+        ui->closeZipEditor();
+        ui->updateControls();
+    } else {
+        Serial.println("ZIP rejected: enter exactly five digits");
+    }
 }
 
-void SettingsUI::zipcodeKeyboardDone(lv_event_t* event)
+void SettingsUI::zipcodeCancelled(void* userData)
 {
-    auto* ui = static_cast<SettingsUI*>(lv_event_get_user_data(event));
-    lv_obj_set_hidden(ui->_zipKeyboard, true);
-    lv_obj_remove_state(ui->_zipInput, LV_STATE_FOCUSED);
+    static_cast<SettingsUI*>(userData)->closeZipEditor();
+}
+
+void SettingsUI::closeZipEditor()
+{
+    if (_zipEditor) {
+        auto* editor = _zipEditor;
+        _zipEditor = nullptr;
+        delete editor;
+    }
 }
