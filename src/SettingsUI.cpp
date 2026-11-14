@@ -34,7 +34,7 @@ SettingsUI::SettingsUI(
     lv_obj_set_style_bg_opa(_root, LV_OPA_COVER, 0);
     lv_obj_set_style_border_width(_root, 0, 0);
     lv_obj_set_style_pad_all(_root, 0, 0);
-    lv_obj_set_scrollable(_root, true);
+    lv_obj_add_flag(_root, LV_OBJ_FLAG_SCROLLABLE);
 
     //
     // Date
@@ -119,6 +119,8 @@ SettingsUI::SettingsUI(
     _zipKeyboard = lv_keyboard_create(lv_screen_active());
     lv_keyboard_set_mode(_zipKeyboard, LV_KEYBOARD_MODE_NUMBER);
     lv_obj_set_size(_zipKeyboard, 320, 125);
+    lv_obj_add_event_cb(_zipKeyboard, zipcodeKeyboardDone, LV_EVENT_READY, this);
+    lv_obj_add_event_cb(_zipKeyboard, zipcodeKeyboardDone, LV_EVENT_CANCEL, this);
     lv_obj_align(_zipKeyboard, LV_ALIGN_BOTTOM_MID, 0, 0);
     lv_keyboard_set_textarea(_zipKeyboard, _zipInput);
     lv_obj_add_flag(_zipKeyboard, LV_OBJ_FLAG_HIDDEN);
@@ -290,4 +292,13 @@ void SettingsUI::zipcodeFocus(lv_event_t* event)
 {
     auto* ui = static_cast<SettingsUI*>(lv_event_get_user_data(event));
     lv_obj_remove_flag(ui->_zipKeyboard, LV_OBJ_FLAG_HIDDEN);
+    // Scroll the ZIP input into the visible portion above the keyboard.
+    lv_obj_scroll_to_y(ui->_root, ZIP_Y - 20, LV_ANIM_OFF);
+}
+
+void SettingsUI::zipcodeKeyboardDone(lv_event_t* event)
+{
+    auto* ui = static_cast<SettingsUI*>(lv_event_get_user_data(event));
+    lv_obj_add_flag(ui->_zipKeyboard, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_remove_state(ui->_zipInput, LV_STATE_FOCUSED);
 }
