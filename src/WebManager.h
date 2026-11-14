@@ -6,11 +6,12 @@
 #include "StatusWeb.h"
 #include "History.h"
 #include "Analysis.h"
+#include "Settings.h"
 
 class WebManager
 {
 public:
-    WebManager(Status& status, History& history, Analysis& analysis);
+    WebManager(Status& status, History& history, Analysis& analysis, Settings& settings);
 
     void begin();
     void update();
@@ -21,6 +22,7 @@ private:
     StatusWeb _statusWeb;
     History& _history;
     Analysis& _analysis;
+    Settings& _settings;
 
     void sendFileList();
     void downloadFile();
