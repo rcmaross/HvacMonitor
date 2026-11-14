@@ -53,7 +53,6 @@ namespace
     const lv_color_t TRACK_COLOR = lv_color_hex(0x505860);
     const lv_color_t LARGE_COLOR = lv_color_hex(0x4CAF50);
     const lv_color_t SMALL_COLOR = lv_color_hex(0xF44336);
-    const lv_color_t OUTDOOR_COLOR = lv_color_hex(0x2196F3);
 
     //
     // Spectrum colors
@@ -105,7 +104,7 @@ StatusUI::StatusUI(lv_obj_t* parent, Status& status) : _status(status)
     createTemperatureRow(_root, "SMALL", ROW_SMALL_Y, SMALL_COLOR, _small);
     _outdoorValue = lv_label_create(_root);
     lv_obj_set_pos(_outdoorValue, LEFT_MARGIN, ROW_OUTDOOR_Y);
-    lv_obj_set_style_text_color(_outdoorValue, OUTDOOR_COLOR, 0);
+    lv_obj_set_style_text_color(_outdoorValue, PRIMARY_TEXT, 0);
     lv_obj_set_style_text_font(_outdoorValue, &lv_font_montserrat_14, 0);
     _currentValue = lv_label_create(_root);
     lv_obj_align(_currentValue, LV_ALIGN_TOP_RIGHT, -RIGHT_MARGIN, ROW_OUTDOOR_Y);
@@ -396,8 +395,8 @@ void StatusUI::update()
     else snprintf(outdoorText, sizeof(outdoorText), "OUTSIDE  --.-");
     lv_label_set_text(_outdoorValue, outdoorText);
     char currentText[32];
-    if (isfinite(_status.currentAmps())) snprintf(currentText, sizeof(currentText), "%.2f A", _status.currentAmps());
-    else snprintf(currentText, sizeof(currentText), "--.-- A");
+    if (isfinite(_status.currentAmps())) snprintf(currentText, sizeof(currentText), "CURRENT  %.2f A", _status.currentAmps());
+    else snprintf(currentText, sizeof(currentText), "CURRENT  --.-- A");
     lv_label_set_text(_currentValue, currentText);
 
     //
