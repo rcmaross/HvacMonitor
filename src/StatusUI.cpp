@@ -17,8 +17,8 @@ namespace
     constexpr int ROW_SPACING = 22;
     constexpr int ROW_LARGE_Y   = 4;
     constexpr int ROW_SMALL_Y   = ROW_LARGE_Y + ROW_SPACING;
-    constexpr int ROW_OUTDOOR_Y = SCALE_Y + ROW_SPACING;
     constexpr int SCALE_Y = ROW_SMALL_Y + ROW_SPACING;
+    constexpr int ROW_OUTDOOR_Y = SCALE_Y + ROW_SPACING;
     constexpr int SYSTEM_STATUS_Y = ROW_OUTDOOR_Y + ROW_SPACING;
     constexpr int PERFORMANCE_STATUS_Y =  SYSTEM_STATUS_Y + ROW_SPACING;
     constexpr int TRACK_Y_OFFSET = 8;
