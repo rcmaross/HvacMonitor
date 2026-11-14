@@ -136,7 +136,7 @@ void setup() {
     // Wi-Fi is not started. PWM is 8-bit at 5 kHz; external RC filter
     // smooths the third channel. Core2/M5Tough target uses ESP32 Arduino 2.x.
     ledcSetup(PWM_CHANNEL, 5000, 8);
-    ledcAttachPin(OUTSIDE_PIN, PWM_CHANNEL);
+    ledcAttachPin(CURRENT_PIN, PWM_CHANNEL);
     setZero();
     drawScreen();
     Serial.println("READY M5Tough HVAC simulator: F,largeF,smallF,currentA");
