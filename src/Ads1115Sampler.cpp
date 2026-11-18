@@ -2,6 +2,7 @@
 #include <Wire.h>
 
 Ads1115Sampler* Ads1115Sampler::_instance = nullptr;
+constexpr uint8_t Ads1115Sampler::CHANNELS[3];
 
 void IRAM_ATTR Ads1115Sampler::onReady() {
     if (_instance) _instance->_ready = true;
