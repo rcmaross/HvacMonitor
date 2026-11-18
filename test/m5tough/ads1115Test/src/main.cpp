@@ -4,10 +4,10 @@
 #include <Adafruit_ADS1X15.h>
 
 // Nonblocking ADS1115 single-shot round-robin test.
-// GPIO19 must connect to ALERT/RDY (external pull-up to 3.3 V).
+// GPIO34 must connect to ALERT/RDY (external pull-up to 3.3 V).
 constexpr int SDA_PIN = 32;
 constexpr int SCL_PIN = 33;
-constexpr int READY_PIN = 19;
+constexpr int READY_PIN = 34;
 constexpr uint8_t ADS_ADDRESS = 0x48;
 constexpr uint32_t SLOT_MS = 333;
 constexpr uint32_t TIMEOUT_MS = 30; // 475 SPS nominally takes ~2.1 ms
