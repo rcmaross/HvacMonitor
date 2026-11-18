@@ -30,7 +30,9 @@ static void sample(Status& status, TemperatureSensor& large, TemperatureSensor& 
                    TemperatureSensor& outdoor, float l, float s, float a, unsigned long t) {
     setTemperature(large, l);
     setTemperature(small, s);
-    setTemperature(outdoor, a);
+    // Outdoor temperature now arrives from Open-Meteo, not the GPIO sensor.
+    // Inject it through the same API used by the firmware.
+    status.setOutdoorTemperature(a);
     fakeNow = t;
     status.update();
     status.sampleCompressor();
