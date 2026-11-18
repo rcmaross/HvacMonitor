@@ -14,7 +14,8 @@ public:
                 bool passwordMode,
                 CompleteCallback completeCallback,
                 CancelCallback cancelCallback,
-                void* userData);
+                void* userData,
+                bool numericMode = false);
 
     ~TextEntryUI();
 

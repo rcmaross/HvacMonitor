@@ -19,7 +19,7 @@ extern "C" {
 //const int OUTDOOR_AMBIENT_PIN = 13;
 const int LARGE_PIPE_PIN     = 35;
 const int SMALL_PIPE_PIN     = 36;
-const int OUTDOOR_AMBIENT_PIN = 34;
+// GPIO34 is now reserved for current sensing.
 
 TemperatureSensor* App::addTemperatureSensor(
     const char* name,
@@ -78,9 +78,7 @@ void App::begin()
 
     TemperatureSensor* small = addTemperatureSensor("Small", SMALL_PIPE_PIN);
 
-    TemperatureSensor* outdoor = addTemperatureSensor("Outdoor", OUTDOOR_AMBIENT_PIN);
-
-    _status = new Status(large, small, outdoor);
+    _status = new Status(large, small, nullptr);
     _status->begin();
     _simulator.begin(*_status);
 
@@ -91,12 +89,13 @@ void App::begin()
 
     _network = new Network(); 
     _network->begin();
+    _current.begin(34);
 
     _ota = new OTA();
     _ota->begin();
 
 
-    _web = new WebManager(*_status, *_history, *_analysis);
+    _web = new WebManager(*_status, *_history, *_analysis, *_settings);
     _web->begin();
 
     _clock = new Clock(*_settings, *_network);
@@ -110,6 +109,7 @@ void App::runEveryQuarterSecond()
 {
     _status->update();
     _simulator.reportTemperatures();
+    _status->setCurrentAmps(_current.readAmps());
 }
 
 float App::convertTempFromCelsius(float c)
@@ -123,6 +123,8 @@ float App::convertTempFromCelsius(float c)
 void App::runEverySecond()
 {
     _clock->update();
+    _weather.update(_settings->zipcode(), _network->isConnected());
+    _status->setOutdoorTemperature(_weather.temperatureC());
     _ui->update();
 
     //_lvgl.printLvglMemory("loop");

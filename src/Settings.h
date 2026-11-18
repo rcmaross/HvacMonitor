@@ -9,6 +9,8 @@ public:
 
     bool ntpEnabled() const { return _ntpEnabled; }
     bool useMetric() const { return _useMetric; }
+    const String& zipcode() const { return _zipcode; }
+    bool setZipcode(const String& zipcode);
 
     void setNtpEnabled(bool enabled);
     void setUseMetric(bool metric);
@@ -19,6 +21,7 @@ public:
 private:
     bool _ntpEnabled = true;
     bool _useMetric = false;
+    String _zipcode;
     String _timezone = "EST5EDT,M3.2.0,M11.1.0";
 
     void save();

@@ -13,6 +13,7 @@ namespace
     constexpr int NTP_Y = 64;
     constexpr int TIMEZONE_Y = 94;
     constexpr int UNITS_Y = 124;
+    constexpr int ZIP_Y = 154;
 
     const lv_color_t BACKGROUND = lv_color_hex(0x101418);
     const lv_color_t PRIMARY_TEXT = lv_color_hex(0xF2F4F5);
@@ -33,7 +34,7 @@ SettingsUI::SettingsUI(
     lv_obj_set_style_bg_opa(_root, LV_OPA_COVER, 0);
     lv_obj_set_style_border_width(_root, 0, 0);
     lv_obj_set_style_pad_all(_root, 0, 0);
-    lv_obj_set_scrollable(_root, false);
+    lv_obj_set_scrollable(_root, true);
 
     //
     // Date
@@ -105,12 +106,18 @@ SettingsUI::SettingsUI(
         this
     );
 
+    createLabel("ZIP", ZIP_Y + 7);
+    _zipButton = createButton(ZIP_Y, VALUE_WIDTH);
+    _zipLabel = lv_label_create(_zipButton);
+    lv_obj_center(_zipLabel);
+    lv_obj_add_event_cb(_zipButton, zipcodeClicked, LV_EVENT_CLICKED, this);
     updateControls();
     updateDateTime();
 }
 
 SettingsUI::~SettingsUI()
 {
+    closeZipEditor();
     if (_root)
     {
         lv_obj_delete(_root);
@@ -183,6 +190,7 @@ void SettingsUI::updateDateTime()
 
 void SettingsUI::updateControls()
 {
+    lv_label_set_text(_zipLabel, _settings.zipcode().isEmpty() ? "Set ZIP code" : _settings.zipcode().c_str());
     if (_settings.ntpEnabled())
         lv_obj_add_state(_ntpSwitch, LV_STATE_CHECKED);
     else
@@ -261,4 +269,37 @@ void SettingsUI::timezoneClicked(lv_event_t* event)
 
     ui->updateControls();
     ui->updateDateTime();
+}
+void SettingsUI::zipcodeClicked(lv_event_t* event)
+{
+    auto* ui = static_cast<SettingsUI*>(lv_event_get_user_data(event));
+    ui->closeZipEditor();
+    ui->_zipEditor = new TextEntryUI("ZIP code", ui->_settings.zipcode(), false,
+                                     zipcodeEntered, zipcodeCancelled, ui, true);
+}
+
+void SettingsUI::zipcodeEntered(const String& text, void* userData)
+{
+    auto* ui = static_cast<SettingsUI*>(userData);
+    if (ui->_settings.setZipcode(text)) {
+        Serial.printf("ZIP saved: %s\\n", text.c_str());
+        ui->closeZipEditor();
+        ui->updateControls();
+    } else {
+        Serial.println("ZIP rejected: enter exactly five digits");
+    }
+}
+
+void SettingsUI::zipcodeCancelled(void* userData)
+{
+    static_cast<SettingsUI*>(userData)->closeZipEditor();
+}
+
+void SettingsUI::closeZipEditor()
+{
+    if (_zipEditor) {
+        auto* editor = _zipEditor;
+        _zipEditor = nullptr;
+        delete editor;
+    }
 }

@@ -5,6 +5,7 @@
 #include "ScreenUI.h"
 #include "Settings.h"
 #include "Clock.h"
+#include "TextEntryUI.h"
 
 class SettingsUI : public ScreenUI
 {
@@ -38,6 +39,13 @@ private:
 
     lv_obj_t* _unitsButton = nullptr;
     lv_obj_t* _unitsLabel = nullptr;
+    lv_obj_t* _zipButton = nullptr;
+    lv_obj_t* _zipLabel = nullptr;
+    TextEntryUI* _zipEditor = nullptr;
+    static void zipcodeClicked(lv_event_t* event);
+    static void zipcodeEntered(const String& text, void* userData);
+    static void zipcodeCancelled(void* userData);
+    void closeZipEditor();
 
     void createLabel(const char* text, int y);
     lv_obj_t* createButton(int y, int width);

@@ -26,8 +26,7 @@ String StatusWeb::statusJson() const
     const float temperatures[] =
     {
         large,
-        small,
-        outdoor
+        small
     };
 
     for (float temperature : temperatures)
@@ -111,6 +110,9 @@ String StatusWeb::statusJson() const
 
     json += ",\"outdoor\":";
     json += isnan(outdoor) ? "null" : String(outdoor, 1);
+
+    json += ",\"current\":";
+    json += isfinite(_status.currentAmps()) ? String(_status.currentAmps(), 2) : "null";
 
     json += ",\"scaleMin\":";
     json += String(displayMin, 1);

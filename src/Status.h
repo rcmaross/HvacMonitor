@@ -32,6 +32,9 @@ public:
     float largePipeTemperature() const { return _largePipeTemperature; }
     float smallPipeTemperature() const { return _smallPipeTemperature; }
     float outdoorTemperature()   const { return _outdoorTemperature; }
+    float currentAmps() const { return _currentAmps; }
+    void setOutdoorTemperature(float c) { _outdoorTemperature = c; }
+    void setCurrentAmps(float a) { _currentAmps = a; }
 
 private:
     static constexpr int SLOPE_SAMPLES = 3;
@@ -56,4 +59,5 @@ private:
     float _largePipeTemperature = NAN;
     float _smallPipeTemperature = NAN;
     float _outdoorTemperature   = NAN;
+    float _currentAmps = NAN;
 };

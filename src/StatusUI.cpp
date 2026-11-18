@@ -17,9 +17,9 @@ namespace
     constexpr int ROW_SPACING = 22;
     constexpr int ROW_LARGE_Y   = 4;
     constexpr int ROW_SMALL_Y   = ROW_LARGE_Y + ROW_SPACING;
-    constexpr int ROW_OUTDOOR_Y = ROW_SMALL_Y + ROW_SPACING;
-    constexpr int SCALE_Y = ROW_OUTDOOR_Y + ROW_SPACING;
-    constexpr int SYSTEM_STATUS_Y = SCALE_Y + ROW_SPACING;
+    constexpr int SCALE_Y = ROW_SMALL_Y + ROW_SPACING;
+    constexpr int ROW_OUTDOOR_Y = SCALE_Y + ROW_SPACING;
+    constexpr int SYSTEM_STATUS_Y = ROW_OUTDOOR_Y + ROW_SPACING;
     constexpr int PERFORMANCE_STATUS_Y =  SYSTEM_STATUS_Y + ROW_SPACING;
     constexpr int TRACK_Y_OFFSET = 8;
     constexpr int TRACK_HEIGHT = 3;
@@ -53,7 +53,6 @@ namespace
     const lv_color_t TRACK_COLOR = lv_color_hex(0x505860);
     const lv_color_t LARGE_COLOR = lv_color_hex(0x4CAF50);
     const lv_color_t SMALL_COLOR = lv_color_hex(0xF44336);
-    const lv_color_t OUTDOOR_COLOR = lv_color_hex(0x2196F3);
 
     //
     // Spectrum colors
@@ -103,7 +102,14 @@ StatusUI::StatusUI(lv_obj_t* parent, Status& status) : _status(status)
 
     createTemperatureRow(_root, "LARGE", ROW_LARGE_Y, LARGE_COLOR, _large);
     createTemperatureRow(_root, "SMALL", ROW_SMALL_Y, SMALL_COLOR, _small);
-    createTemperatureRow(_root, "OUTDOOR", ROW_OUTDOOR_Y, OUTDOOR_COLOR, _outdoor);
+    _outdoorValue = lv_label_create(_root);
+    lv_obj_set_pos(_outdoorValue, LEFT_MARGIN, ROW_OUTDOOR_Y);
+    lv_obj_set_style_text_color(_outdoorValue, PRIMARY_TEXT, 0);
+    lv_obj_set_style_text_font(_outdoorValue, &lv_font_montserrat_14, 0);
+    _currentValue = lv_label_create(_root);
+    lv_obj_align(_currentValue, LV_ALIGN_TOP_RIGHT, -RIGHT_MARGIN, ROW_OUTDOOR_Y);
+    lv_obj_set_style_text_color(_currentValue, PRIMARY_TEXT, 0);
+    lv_obj_set_style_text_font(_currentValue, &lv_font_montserrat_14, 0);
 
     //
     // Shared temperature spectrum
@@ -249,7 +255,7 @@ void StatusUI::createScale(lv_obj_t* parent)
     lv_obj_set_style_text_align(_scaleMax, LV_TEXT_ALIGN_LEFT, 0);
 }
 
-void StatusUI::updateScale(float large, float small, float outdoor)
+void StatusUI::updateScale(float large, float small)
 {
     //
     // Find the minimum and maximum valid readings.
@@ -262,8 +268,7 @@ void StatusUI::updateScale(float large, float small, float outdoor)
     const float temperatures[] =
     {
         large,
-        small,
-        outdoor
+        small
     };
 
     for (float temperature : temperatures)
@@ -381,11 +386,18 @@ void StatusUI::update()
     // Calculate the common scale before positioning markers.
     //
 
-    updateScale(large, small, outdoor);
+    updateScale(large, small);
 
     updateTemperatureRow(_large, large);
     updateTemperatureRow(_small, small);
-    updateTemperatureRow(_outdoor, outdoor);
+    char outdoorText[48];
+    if (isfinite(outdoor)) snprintf(outdoorText, sizeof(outdoorText), "OUTSIDE  %.1f", outdoor);
+    else snprintf(outdoorText, sizeof(outdoorText), "OUTSIDE  --.-");
+    lv_label_set_text(_outdoorValue, outdoorText);
+    char currentText[32];
+    if (isfinite(_status.currentAmps())) snprintf(currentText, sizeof(currentText), "CURRENT  %.2f A", _status.currentAmps());
+    else snprintf(currentText, sizeof(currentText), "CURRENT  --.-- A");
+    lv_label_set_text(_currentValue, currentText);
 
     //
     // Placeholder until Status provides HVAC state.

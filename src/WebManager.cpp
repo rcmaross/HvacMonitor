@@ -1,6 +1,7 @@
 #include "WebManager.h"
 #include "generated/index_html.h"
 #include "generated/status_html.h"
+#include "generated/settings_html.h"
 #include "generated/history_html.h"
 #include "generated/analysis_html.h"
 #include "generated/firmware_html.h"
@@ -23,10 +24,11 @@ static bool validHistoryFilename(const String& name)
     return true;
 }
 
-WebManager::WebManager(Status& status, History& history, Analysis& analysis)
+WebManager::WebManager(Status& status, History& history, Analysis& analysis, Settings& settings)
     : _statusWeb(status),
       _history(history),
-      _analysis(analysis)
+      _analysis(analysis),
+      _settings(settings)
 {
 }
 
@@ -37,6 +39,16 @@ void WebManager::begin()
         _server.send(200, "text/html", INDEX_HTML);
     });
 
+    _server.on("/settings", HTTP_GET, [this]() { _server.send(200, "text/html", SETTINGS_HTML); });
+    _server.on("/api/settings", HTTP_GET, [this]() {
+        _server.send(200, "application/json", String("{\"zipcode\":\"") + _settings.zipcode() + "\"}");
+    });
+    _server.on("/api/settings", HTTP_POST, [this]() {
+        if (!_server.hasArg("zipcode") || !_settings.setZipcode(_server.arg("zipcode"))) {
+            _server.send(400, "text/plain", "ZIP must be five digits"); return;
+        }
+        _server.send(200, "application/json", String("{\"zipcode\":\"") + _settings.zipcode() + "\"}");
+    });
     _server.on("/status", HTTP_GET, [this]()
     {
         _server.send(200, "text/html", STATUS_HTML);

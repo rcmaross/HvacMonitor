@@ -9,6 +9,7 @@ void Settings::begin()
 
     _ntpEnabled = prefs.getBool("ntp", true);
     _useMetric = prefs.getBool("metric", false);
+    _zipcode = prefs.getString("zipcode", "");
     _timezone = prefs.getString("timezone", "EST5EDT,M3.2.0,M11.1.0");
 
     prefs.end();
@@ -41,6 +42,15 @@ void Settings::setUseMetric(bool metric)
     save();
 }
 
+bool Settings::setZipcode(const String& zipcode)
+{
+    if (zipcode.length() != 5) return false;
+    for (size_t i = 0; i < 5; ++i)
+        if (zipcode[i] < '0' || zipcode[i] > '9') return false;
+    if (_zipcode != zipcode) { _zipcode = zipcode; save(); }
+    return true;
+}
+
 void Settings::save()
 {
     Preferences prefs;
@@ -50,6 +60,7 @@ void Settings::save()
 
     prefs.putBool("ntp", _ntpEnabled);
     prefs.putBool("metric", _useMetric);
+    prefs.putString("zipcode", _zipcode);
     prefs.putString("timezone", _timezone);
 
     prefs.end();

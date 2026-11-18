@@ -19,8 +19,7 @@ void Status::update()
     _smallPipeTemperature =
         _smallPipeSensor->readCelsius();
 
-    _outdoorTemperature =
-        _outdoorSensor->readCelsius();
+    // Outdoor temperature is supplied by Open-Meteo, not GPIO34.
 }
 
 void Status::sampleCompressor()
