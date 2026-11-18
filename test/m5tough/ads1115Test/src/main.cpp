@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <Wire.h>
 #include <M5Unified.h>
+#include <Adafruit_ADS1X15.h>
 
 // Nonblocking ADS1115 single-shot round-robin test.
 // GPIO19 must connect to ALERT/RDY (external pull-up to 3.3 V).
@@ -13,11 +14,7 @@ constexpr uint32_t TIMEOUT_MS = 30; // 475 SPS nominally takes ~2.1 ms
 constexpr uint8_t CHANNELS[] = {0, 1, 3};
 constexpr uint8_t NUM_CHANNELS = sizeof(CHANNELS);
 
-// ADS1115 registers
-constexpr uint8_t REG_CONVERSION = 0x00;
-constexpr uint8_t REG_CONFIG = 0x01;
-constexpr uint8_t REG_LO_THRESH = 0x02;
-constexpr uint8_t REG_HI_THRESH = 0x03;
+Adafruit_ADS1115 ads;
 
 volatile bool readyInterrupt = false;
 bool connected = false;
@@ -35,42 +32,19 @@ bool valid[4] = {};
 
 void IRAM_ATTR onReady() { readyInterrupt = true; }
 
-bool writeRegister(uint8_t reg, uint16_t value) {
-    Wire.beginTransmission(ADS_ADDRESS);
-    Wire.write(reg);
-    Wire.write(static_cast<uint8_t>(value >> 8));
-    Wire.write(static_cast<uint8_t>(value));
-    return Wire.endTransmission() == 0;
-}
-
-bool readRegister(uint8_t reg, uint16_t& value) {
-    Wire.beginTransmission(ADS_ADDRESS);
-    Wire.write(reg);
-    if (Wire.endTransmission(false) != 0) return false;
-    if (Wire.requestFrom(ADS_ADDRESS, static_cast<uint8_t>(2)) != 2) return false;
-    value = (static_cast<uint16_t>(Wire.read()) << 8) | Wire.read();
+bool connectADS() {
+    if (!ads.begin(ADS_ADDRESS, &Wire)) return false;
+    ads.setGain(GAIN_ONE);
+    ads.setDataRate(RATE_ADS1115_475SPS);
+    // startADCReading configures conversion-ready ALERT/RDY mode.
     return true;
 }
 
-bool connectADS() {
-    Wire.beginTransmission(ADS_ADDRESS);
-    if (Wire.endTransmission() != 0) return false;
-    // Conversion-ready mode: high threshold MSB=1, low threshold MSB=0.
-    // Comparator queue is enabled (00) in each conversion's CONFIG write.
-    return writeRegister(REG_HI_THRESH, 0x8000) &&
-           writeRegister(REG_LO_THRESH, 0x0000);
-}
-
 bool startConversion(uint8_t channel) {
-    // OS=1, MUX=100+channel (single-ended), PGA=001 (+/-4.096V),
-    // MODE=1 (single-shot), DR=110 (475 SPS), comparator traditional,
-    // active low, nonlatching, assert after one conversion.
-    const uint16_t config = 0x8000u |
-                            (static_cast<uint16_t>(4 + channel) << 12) |
-                            0x0200u | 0x0100u | 0x00C0u;
     readyInterrupt = false;
     pendingChannel = channel;
-    if (!writeRegister(REG_CONFIG, config)) return false;
+    ads.startADCReading(ADS1X15_REG_CONFIG_MUX_SINGLE_0 +
+                        (static_cast<uint16_t>(channel) << 12), false);
     conversionStartMs = millis();
     pending = true;
     return true;
@@ -143,14 +117,9 @@ void loop() {
     if (pending) {
         if (readyInterrupt || digitalRead(READY_PIN) == LOW) {
             readyInterrupt = false;
-            uint16_t raw;
-            if (readRegister(REG_CONVERSION, raw)) {
-                latest[pendingChannel] = static_cast<int16_t>(raw);
-                valid[pendingChannel] = true;
-                ++samples[pendingChannel];
-            } else {
-                ++ioErrors;
-            }
+            latest[pendingChannel] = ads.getLastConversionResults();
+            valid[pendingChannel] = true;
+            ++samples[pendingChannel];
             pending = false;
         } else if (now - conversionStartMs >= TIMEOUT_MS) {
             ++timeouts;
