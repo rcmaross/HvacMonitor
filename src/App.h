@@ -14,6 +14,7 @@
 #include "SensorSimulator.h"
 #include "OutdoorWeather.h"
 #include "CurrentSensor.h"
+#include "Ads1115Sampler.h"
 
 class App
 {
@@ -38,13 +39,14 @@ private:
 
     TemperatureSensor* addTemperatureSensor(
         const char* name,
-        int pin
+        int channel
     );
 
     TemperatureSensor* getTemperatureSensor(const char *name);
 
     SensorSimulator _simulator;
     OutdoorWeather _weather;
+    Ads1115Sampler _ads;
     CurrentSensor _current;
     LVGLManager _lvgl;
     UIManager* _ui = nullptr;
