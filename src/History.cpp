@@ -53,7 +53,7 @@ void History::write(const Analysis& analysis)
         return;
     }
 
-    static constexpr int CSV_VERSION = 7;
+    static constexpr int CSV_VERSION = 8;
 
     char filename[64];
 
@@ -82,6 +82,7 @@ void History::write(const Analysis& analysis)
             "large_c,"
             "small_c,"
             "outside_c,"
+            "current_a,"
             "large_small_delta_c,"
             "large_outside_delta_c,"
             "small_outside_delta_c,"
@@ -131,8 +132,8 @@ void History::write(const Analysis& analysis)
     const float average = minute ? completed.avgDeltaC : analysis.runningAverage();
 
     file.printf(
-        "%s,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.4f,%.4f,%.4f,%.4f,%.4f,%s,%u,%.3f,%s,%s\n",
-        timestamp, large, small, outside,
+        "%s,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.4f,%.4f,%.4f,%.4f,%.4f,%s,%u,%.3f,%s,%s\n",
+        timestamp, large, small, outside, _status.currentAmps(),
         fabsf(large - small), fabsf(large - outside), fabsf(small - outside),
         largeSlope, smallSlope, largeSlope - smallSlope,
         outsideSlope, largeOutsideSlope,
