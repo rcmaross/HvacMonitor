@@ -11,19 +11,10 @@ extern "C" {
     extern char _bss_start;
     extern char _bss_end;
 }
-// ------------------------------------------------------------
-// Sensor GPIOs
-// ------------------------------------------------------------
-//const int LARGE_PIPE_PIN     = 25;
-//const int SMALL_PIPE_PIN     = 26;
-//const int OUTDOOR_AMBIENT_PIN = 13;
-const int LARGE_PIPE_PIN     = 35;
-const int SMALL_PIPE_PIN     = 36;
-// GPIO34 is now reserved for current sensing.
-
+// ADS1115 channels: A0 large, A1 small, A3 current.
 TemperatureSensor* App::addTemperatureSensor(
     const char* name,
-    int pin
+    int channel
 )
 {
     if (tempSensorCount >= MAX_TEMP_SENSORS)
@@ -37,7 +28,7 @@ TemperatureSensor* App::addTemperatureSensor(
     }
 
     TemperatureSensor* sensor =
-        new TemperatureSensor(name, pin);
+        new TemperatureSensor(name, _ads, channel);
 
     tempSensors[tempSensorCount++] = sensor;
 
@@ -73,10 +64,10 @@ void App::begin()
     _lvgl.begin();
     _lvgl.printLvglMemory("begin");
 
-    analogReadResolution(12);
-    TemperatureSensor* large = addTemperatureSensor("Large", LARGE_PIPE_PIN);
+    _ads.begin();
+    TemperatureSensor* large = addTemperatureSensor("Large", 0);
 
-    TemperatureSensor* small = addTemperatureSensor("Small", SMALL_PIPE_PIN);
+    TemperatureSensor* small = addTemperatureSensor("Small", 1);
 
     _status = new Status(large, small, nullptr);
     _status->begin();
@@ -89,7 +80,7 @@ void App::begin()
 
     _network = new Network(); 
     _network->begin();
-    _current.begin(34);
+    _current.begin(_ads, 3);
 
     _ota = new OTA();
     _ota->begin();
@@ -133,6 +124,7 @@ void App::runEverySecond()
 void App::run()
 {
     M5.update();
+    _ads.update();
     _simulator.update();
 
     _lvgl.update();
