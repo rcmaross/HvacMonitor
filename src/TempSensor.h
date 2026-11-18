@@ -1,36 +1,19 @@
 #pragma once
-
 #include <Arduino.h>
-
-class TemperatureSensor
-{
+#include "Ads1115Sampler.h"
+#define TEMP_AVERAGE_SAMPLES 15
+class TemperatureSensor {
 public:
-    TemperatureSensor(const char* name, int pin);
-
+    TemperatureSensor(const char* name, Ads1115Sampler& sampler, uint8_t channel);
     float readCelsius();
     const char* name() const { return _name; }
-    int pin() const { return _pin; }
-
+    int pin() const { return _channel; }
 private:
-    static constexpr int SAMPLE_COUNT = 60;
-    static constexpr int TRIM_COUNT = 3;
-
     const char* _name;
-    int _pin;
-
-    float _samples[SAMPLE_COUNT];
-    int _sampleIndex = 0;
-
-    static constexpr float SERIES_RESISTOR     = 10000.0f;
-    static constexpr float NOMINAL_RESISTANCE  = 10000.0f;
-    static constexpr float NOMINAL_TEMPERATURE = 25.0f;
-    static constexpr float BETA                = 3950.0f;
-
-    void begin();
-
-    float readResistance();
-    float resistanceToCelsius(float resistance);
-    float readInstantCelsius();
-    float readSampledCelsius();
-    float calculateAverage();
+    Ads1115Sampler& _sampler;
+    uint8_t _channel;
+    uint32_t _lastSequence = 0;
+    float _samples[TEMP_AVERAGE_SAMPLES] = {};
+    size_t _index = 0, _count = 0;
+    float _sum = 0.0f, _average = NAN;
 };
