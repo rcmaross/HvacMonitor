@@ -1,6 +1,5 @@
 #include <Arduino.h>
 #include <Wire.h>
-#include <SPI.h>
 #include <M5Unified.h>
 
 // Nonblocking ADS1115 single-shot round-robin test.
