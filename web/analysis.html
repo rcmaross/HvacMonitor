@@ -1,52 +1,38 @@
-<!doctype html>
-<html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<style>
-body{background:#101418;color:#f2f4f5;font:16px Arial;margin:0;padding:12px}
-main{max-width:620px;margin:auto}.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
-.card{background:#20282d;border-radius:8px;padding:10px;text-align:center}
-strong{display:block;font-size:25px;margin-top:4px}.levels{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:14px 0;text-align:center}
-.levels strong{font-size:clamp(13px,2.8vw,20px);white-space:nowrap}section{margin-top:16px}label{display:block;margin:12px 0}@media(max-height:450px) and (orientation:landscape){body{padding:6px 12px}h2{margin:4px 0 8px}.card{padding:6px}strong{font-size:22px}.levels{margin:8px 0}}
-input[type=range]{width:100%}button{background:#354650;color:white;border:1px solid #667680;border-radius:5px;padding:10px 18px}
-button:disabled{opacity:.4}.advanced{border-top:1px solid #667680;padding-top:8px;margin-top:18px}.advanced h3{font-size:16px;font-weight:normal;margin:4px 0}#loading{color:#e2b44f}
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
+body{background:#101418;color:#f2f4f5;font:15px Arial;margin:0;padding:12px}main{max-width:1100px;margin:auto}
+.card{background:#20282d;border-radius:8px;padding:12px}.stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+strong{display:block;font-size:22px;margin-top:6px}section{margin-top:18px}table{width:100%;border-collapse:collapse;white-space:nowrap}
+th,td{padding:9px 8px;text-align:right;border-bottom:1px solid #34414a}th:first-child,td:first-child{text-align:left}
+.scroll{overflow-x:auto}label{display:inline-flex;flex-direction:column;margin:6px 12px 6px 0;gap:5px}
+input{background:#20282d;color:white;border:1px solid #667680;border-radius:4px;padding:7px;width:105px}
+button{background:#354650;color:white;border:1px solid #667680;border-radius:5px;padding:9px 18px}
+small,.muted{color:#a8b6bd}#message{color:#e2b44f}
 </style></head><body><main>
-<h2>Analysis <small>Last 24h</small></h2>
-<div id="loading"></div>
-<div class="stats"><div class="card">OFF<strong id="off">--</strong></div><div class="card">ON<strong id="on">--</strong></div></div>
-<div class="levels"><div>MAINT<strong id="mp">--</strong></div><div>LOW<strong id="lp">--</strong></div><div>HIGH<strong id="hp">--</strong></div></div>
-<section><label><input id="auto" type="checkbox"> Auto Calibrate</label>
-<label>MAINT / LOW: <span id="lv"></span><input id="low" type="range" min="0" max="99" step="1"></label>
-<label>LOW / HIGH: <span id="hv"></span><input id="high" type="range" min="1" max="100" step="1"></label>
-<label>MIN Duration: <span id="iv"></span> seconds
-<button id="minus" type="button">−</button><button id="plus" type="button">+</button></label>
-<button id="apply" type="button">Recalculate</button></section>
-<section class="advanced"><h3>Advanced</h3><label><input id="detectLowPower" type="checkbox"> Detect low-power heating</label></section></main>
-<script>
-const el=id=>document.getElementById(id);
-let initialized=false,dirty=false;
-function pct(n){return Number(n).toFixed(1)+'%'}
-async function refresh(){
- try{
-  const r=await fetch('/api/analysis');const d=await r.json();
-  el('loading').textContent=d.loading?'Loading History...':'';
-  for(const [id,key] of [['off','off'],['on','on']])el(id).textContent=pct(d[key]);
-  for(const [id,key] of [['mp','maintPercent'],['lp','lowPercent'],['hp','highPercent']])el(id).textContent=pct(d[key])+' ('+pct(d[key]*d.on/100)+')';
-  if(!initialized||!dirty){
-   el('auto').checked=d.auto;el('detectLowPower').checked=d.detectLowPowerHeating;el('low').value=d.low;el('high').value=d.high;el('iv').textContent=d.minDuration;initialized=true;
-  }
-  el('low').disabled=el('high').disabled=el('auto').checked;
-  el('lv').textContent=el('low').value;
-  el('hv').textContent=el('high').value;
-  el('apply').disabled=d.loading;
- }catch(e){el('loading').textContent='Unable to load analysis';}
+<h2>Heating Analysis <small>Last 24 hours</small></h2><p id="message"></p>
+<div class="stats"><div class="card">Runtime<strong id="runtime">--</strong></div><div class="card">Full-load minutes<strong id="full">--</strong></div><div class="card">Average load<strong id="load">--</strong></div></div>
+<section><h3>Heating events</h3><div class="scroll"><table><thead><tr><th>Start</th><th>Duration</th><th>Avg current</th><th>Avg ΔT L–S</th><th>Load</th><th>Full-load min</th><th>Efficiency A/°C</th><th>Status</th></tr></thead><tbody id="events"></tbody></table></div></section>
+<section><h3>Electrical analysis settings</h3>
+<label>OFF threshold (A)<input id="offThresholdA" type="number" step="0.05" min="0"></label>
+<label>Reference input (W)<input id="referenceW" type="number" step="100" min="100"></label>
+<label>Nominal voltage (V)<input id="nominalVoltage" type="number" step="1"></label>
+<label>Startup exclusion (s)<input id="startupSeconds" type="number" step="10"></label>
+<label>Min ΔT (°C)<input id="minDeltaC" type="number" step="0.5"></label>
+<p><button id="apply">Apply and rebuild history</button></p><p class="muted">Reference input is a configurable apparent-power proxy (V × A); efficiency is an experimental current/temperature index, lower is better. Values are computed in firmware, not in the browser.</p></section>
+</main><script>
+const el=id=>document.getElementById(id);let dirty=false,initialized=false;
+const fields=['offThresholdA','referenceW','nominalVoltage','startupSeconds','minDeltaC'];
+fields.forEach(k=>el(k).oninput=()=>dirty=true);
+function num(x,d=1){return Number(x||0).toFixed(d)}
+function render(d){
+el('message').textContent=d.loading?'Reconstructing historical events...':'';
+if(!dirty||!initialized){fields.forEach(k=>el(k).value=d[k]);initialized=true}
+const events=(d.events||[]).slice().reverse(), cutoff=Date.now()/1000-86400;
+let seconds=0,full=0;for(const e of events){const overlap=Math.max(0,Math.min(e.start+e.seconds,Date.now()/1000)-Math.max(e.start,cutoff));seconds+=overlap;full+=e.fullLoadMinutes*overlap/Math.max(e.seconds,1)}
+el('runtime').textContent=num(seconds/60)+' min';el('full').textContent=num(full)+' min';el('load').textContent=seconds?num(100*full*60/seconds)+'%':'--';
+el('events').replaceChildren();
+for(const e of events){const tr=document.createElement('tr');const vals=[new Date(e.start*1000).toLocaleString(),num(e.seconds/60)+'m',num(e.avgCurrentA,2)+' A',num(e.avgDeltaC,1)+' °C',num(e.loadPct)+'%',num(e.fullLoadMinutes),e.efficiencyIndex==null?'--':num(e.efficiencyIndex,3),e.complete?'Complete':'In progress'];for(const v of vals){const td=document.createElement('td');td.textContent=v;tr.appendChild(td)}el('events').appendChild(tr)}
 }
-for(const id of ['auto','low','high','detectLowPower'])el(id).addEventListener('input',()=>{dirty=true;el('low').disabled=el('high').disabled=el('auto').checked;el('lv').textContent=el('low').value;el('hv').textContent=el('high').value});
-el('minus').onclick=()=>{el('iv').textContent=Math.max(0,+el('iv').textContent-10);dirty=true};
-el('plus').onclick=()=>{el('iv').textContent=Math.min(120,+el('iv').textContent+10);dirty=true};
-el('apply').onclick=async()=>{
- const p=new URLSearchParams({auto:String(el('auto').checked),minDuration:el('iv').textContent,detectLowPowerHeating:String(el('detectLowPower').checked)});
- if(!el('auto').checked){p.set('low',el('low').value);p.set('high',el('high').value)}
- const r=await fetch('/api/analysis/config',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:p});
- if(!r.ok){alert(await r.text());return}dirty=false;refresh();
-};
+async function refresh(){try{const r=await fetch('/api/analysis');if(!r.ok)throw Error(r.status);render(await r.json())}catch(e){el('message').textContent='Unable to load analysis: '+e}}
+el('apply').onclick=async()=>{const p=new URLSearchParams();fields.forEach(k=>p.set(k,el(k).value));const r=await fetch('/api/analysis/config',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:p});if(!r.ok){alert(await r.text());return}dirty=false;render(await r.json())};
 refresh();setInterval(refresh,10000);
 </script></body></html>
