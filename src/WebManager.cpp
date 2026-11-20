@@ -70,6 +70,16 @@ void WebManager::begin()
     _server.on("/analysis", HTTP_GET, [this]() { _server.send(200, "text/html", ANALYSIS_HTML); });
     _server.on("/api/analysis", HTTP_GET, [this]() { _server.send(200, "application/json", _analysis.json()); });
     _server.on("/api/analysis/config", HTTP_POST, [this]() {
+        if (_server.hasArg("referenceW")) {
+            if (!_analysis.configureLoad(
+                _server.arg("offThresholdA").toFloat(),
+                _server.arg("referenceW").toFloat(),
+                _server.arg("nominalVoltage").toFloat(),
+                (uint32_t)_server.arg("startupSeconds").toInt(),
+                _server.arg("minDeltaC").toFloat())) {
+                _server.send(400, "text/plain", "Invalid electrical analysis settings"); return;
+            }
+        }
         if (_server.hasArg("auto")) _analysis.setAuto(_server.arg("auto") == "true");
         if (_server.hasArg("detectLowPowerHeating")) _analysis.setDetectLowPowerHeating(_server.arg("detectLowPowerHeating") == "true");
         if (_server.hasArg("minDuration")) _analysis.setMinDuration(_server.arg("minDuration").toInt());
