@@ -1,5 +1,31 @@
 #pragma once
 #include <Arduino.h>
+#ifdef PIO_UNIT_TESTING
+// Native test double: keeps the ADS1115 hardware library out of host builds.
+class Ads1115Sampler {
+public:
+    bool begin() { return true; }
+    void update() {}
+    bool latest(uint8_t channel, int16_t& raw, uint32_t& sequence) const {
+        if (channel >= 4 || !_valid[channel]) return false;
+        raw = _raw[channel];
+        sequence = _sequence[channel];
+        return true;
+    }
+    void inject(uint8_t channel, int16_t raw) {
+        if (channel >= 4) return;
+        _raw[channel] = raw;
+        _valid[channel] = true;
+        ++_sequence[channel];
+    }
+    uint32_t timeouts() const { return 0; }
+    bool connected() const { return true; }
+private:
+    int16_t _raw[4] = {};
+    uint32_t _sequence[4] = {};
+    bool _valid[4] = {};
+};
+#else
 #include <Adafruit_ADS1X15.h>
 
 class Ads1115Sampler {
@@ -24,3 +50,5 @@ private:
     int16_t _raw[4] = {};
     uint32_t _sequence[4] = {};
 };
+
+#endif // PIO_UNIT_TESTING
