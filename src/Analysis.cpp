@@ -383,7 +383,6 @@ void Analysis::parseHistoryLine(const String& line) {
     else if (name == "DOWNSTAGING") state = CompressorState::DOWNSTAGING;
     float delta = fabsf(largeText.toFloat() - outdoorText.toFloat());
     if (!_historyCelsius && !_history.csvMetric()) delta *= 5.0f / 9.0f;
-    if (state == CompressorState::UNKNOWN) return;
     _lastHistoryTimestamp = (uint32_t)t;
     if (_currentColumn >= 0 && currentText.length()) {
         float largeC = largeText.toFloat(), smallC = smallText.toFloat();
@@ -393,7 +392,7 @@ void Analysis::parseHistoryLine(const String& line) {
         }
         feedLoad((uint32_t)t, currentText.toFloat(), largeC, smallC);
     }
-    feed((uint32_t)t, state, delta);
+    if (state != CompressorState::UNKNOWN) feed((uint32_t)t, state, delta);
 }
 
 void Analysis::update() {
@@ -454,6 +453,7 @@ bool Analysis::configureLoad(float threshold, float watts, float volts, uint32_t
     _loadConfig.voltageV = volts;
     _loadConfig.startupSeconds = startup;
     _loadConfig.minDeltaC = delta;
+    _loadEngine.configure(_loadConfig);
     save();
     resetReconstruction();
     return true;
