@@ -458,3 +458,23 @@ bool Analysis::configureLoad(float threshold, float watts, float volts, uint32_t
     resetReconstruction();
     return true;
 }
+
+LoadSummary Analysis::loadSummary() const {
+    LoadSummary t;
+    const uint32_t now = (uint32_t)time(nullptr);
+    const uint32_t cutoff = now > 86400 ? now - 86400 : 0;
+    auto add = [&](const LoadEvent& e) {
+        const uint32_t end = e.start + e.seconds;
+        if (end <= cutoff || e.start >= now || !e.seconds) return;
+        const uint32_t begin = e.start > cutoff ? e.start : cutoff;
+        const uint32_t clippedEnd = end < now ? end : now;
+        const float ratio = float(clippedEnd - begin) / e.seconds;
+        t.runtimeMinutes += (clippedEnd - begin) / 60.0f;
+        t.fullLoadMinutes += e.fullLoadMinutes * ratio;
+    };
+    for (size_t i = 0; i < _loadCount; ++i)
+        add(_loadEvents[(_loadHead + i) % LOAD_CAPACITY]);
+    if (_loadEngine.active()) add(_loadEngine.currentEvent());
+    if (t.runtimeMinutes > 0) t.avgLoadPct = 100 * t.fullLoadMinutes / t.runtimeMinutes;
+    return t;
+}
