@@ -43,6 +43,8 @@ public:
     float sampleLoadPct() const { return _sampleLoad.loadPct; }
     float sampleEfficiencyIndex() const { return _sampleLoad.efficiencyIndex; }
     bool configureLoad(float threshold, float watts, float volts, uint32_t startup, float delta);
+    float maxPowerW() const { return _loadConfig.referenceW; }
+    const LoadConfig& loadConfig() const { return _loadConfig; }
 
 private:
     static constexpr size_t CAPACITY = 12000;
