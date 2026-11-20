@@ -10,14 +10,14 @@ small,.muted{color:#a8b6bd}#message{color:#e2b44f}
 </style></head><body><main>
 <h2>Heating Analysis <small>Last 24 hours</small></h2><p id="message"></p>
 <div class="stats"><div class="card">Runtime<strong id="runtime">--</strong></div><div class="card">Full-load minutes<strong id="full">--</strong></div><div class="card">Average load<strong id="load">--</strong></div></div>
-<section><h3>Heating events</h3><div class="scroll"><table><thead><tr><th>Start</th><th>Duration</th><th>Avg current</th><th>Avg ΔT L–S</th><th>Load</th><th>Full-load min</th><th>Efficiency A/°C</th><th>Status</th></tr></thead><tbody id="events"></tbody></table></div></section>
 <section><h3>Electrical analysis settings</h3>
 <label>OFF threshold (A)<input id="offThresholdA" type="number" step="0.05" min="0"></label>
-<label>Reference input (W)<input id="referenceW" type="number" step="100" min="100"></label>
+<label>Max Power (W)<input id="referenceW" type="number" step="100" min="100"></label>
 <label>Nominal voltage (V)<input id="nominalVoltage" type="number" step="1"></label>
 <label>Startup exclusion (s)<input id="startupSeconds" type="number" step="10"></label>
-<label>Min ΔT (°C)<input id="minDeltaC" type="number" step="0.5"></label>
-<p><button id="apply">Apply and rebuild history</button></p><p class="muted">Reference input is a configurable apparent-power proxy (V × A); efficiency is an experimental current/temperature index, lower is better. Values are computed in firmware, not in the browser.</p></section>
+<label>Minimum ΔT (°C)<input id="minDeltaC" type="number" step="0.5"></label>
+<p><button id="apply">Apply / Rebuild</button></p><p class="muted">Max Power is the reference for the apparent-power proxy (V × A); efficiency is an experimental current/temperature index, lower is better. Values are computed in firmware, not in the browser.</p></section>
+<section><h3>Heating events</h3><div class="scroll"><table><thead><tr><th>Start</th><th>Duration</th><th>Avg current</th><th>Avg ΔT L–S</th><th>Load</th><th>Full-load min</th><th>Efficiency A/°C</th><th>Status</th></tr></thead><tbody id="events"></tbody></table></div></section>
 </main><script>
 const el=id=>document.getElementById(id);let dirty=false,initialized=false;
 const fields=['offThresholdA','referenceW','nominalVoltage','startupSeconds','minDeltaC'];
