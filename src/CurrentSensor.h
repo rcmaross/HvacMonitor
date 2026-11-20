@@ -1,7 +1,7 @@
 #pragma once
 #include <Arduino.h>
 #include "Ads1115Sampler.h"
-#define CURRENT_AVERAGE_SAMPLES 15
+#define CURRENT_AVERAGE_SAMPLES 5
 class CurrentSensor {
 public:
     void begin(Ads1115Sampler& sampler, uint8_t channel);
