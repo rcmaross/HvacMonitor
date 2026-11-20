@@ -15,6 +15,11 @@ void Analysis::save() {
     p.putInt("low", _low);
     p.putInt("high", _high);
     p.putInt("minDuration", _minDuration);
+    p.putFloat("offCurrent", _loadConfig.offThresholdA);
+    p.putFloat("referenceW", _loadConfig.referenceW);
+    p.putFloat("nominalV", _loadConfig.voltageV);
+    p.putUInt("startupS", _loadConfig.startupSeconds);
+    p.putFloat("minDeltaC", _loadConfig.minDeltaC);
     p.end();
 }
 
@@ -26,7 +31,13 @@ void Analysis::begin() {
     _low = p.getInt("low", 6);
     _high = p.getInt("high", 40);
     _minDuration = p.getInt("minDuration", 30);
+    _loadConfig.offThresholdA = p.getFloat("offCurrent", 0.2f);
+    _loadConfig.referenceW = p.getFloat("referenceW", 2400.0f);
+    _loadConfig.voltageV = p.getFloat("nominalV", 240.0f);
+    _loadConfig.startupSeconds = p.getUInt("startupS", 120);
+    _loadConfig.minDeltaC = p.getFloat("minDeltaC", 2.0f);
     p.end();
+    _loadEngine.configure(_loadConfig);
     if (_low != 6) _low = 6;
     if (_high <= _low || _high > 100) _high = 40;
     if (_minDuration < 0 || _minDuration > 120 || _minDuration % 10) _minDuration = 30;
@@ -157,6 +168,9 @@ void Analysis::feed(uint32_t timestamp, CompressorState state, float delta) {
 
 void Analysis::resetReconstruction() {
     _head = _count = 0;
+    _loadHead = _loadCount = 0;
+    _lastLoadTimestamp = 0;
+    _loadEngine.reset();
     _hasPrevious = false;
     _sampleCount = 0;
     _sumDelta = 0;
@@ -232,6 +246,7 @@ void Analysis::sample(const Status& status) {
     if (_loading) return; // History is still being replayed; CSV retains samples.
     if ((uint32_t)now <= _cutoff || (uint32_t)now <= _lastLiveTimestamp) return;
     _lastLiveTimestamp = (uint32_t)now;
+    feedLoad((uint32_t)now, status.currentAmps(), large, small);
     feed((uint32_t)now, status.compressorState(), fabsf(large - status.outdoorTemperature()));
 }
 
@@ -273,13 +288,41 @@ String Analysis::json() const {
     s += ",\"lowPercent\":" + String(_lowPct, 1);
     s += ",\"maintPercent\":" + String(_maintPct, 1);
     s += ",\"highPercent\":" + String(_highPct, 1) + "}";
+    s.remove(s.length()-1); // Replace closing brace with current-based event data.
+    s += ",\"offThresholdA\":" + String(_loadConfig.offThresholdA, 3);
+    s += ",\"referenceW\":" + String(_loadConfig.referenceW, 1);
+    s += ",\"nominalVoltage\":" + String(_loadConfig.voltageV, 1);
+    s += ",\"startupSeconds\":" + String(_loadConfig.startupSeconds);
+    s += ",\"minDeltaC\":" + String(_loadConfig.minDeltaC, 2);
+    s += ",\"events\":[";
+    bool first = true;
+    uint32_t cutoff = (uint32_t)time(nullptr) - 86400;
+    auto emit = [&](const LoadEvent& e) {
+        if (e.start + e.seconds < cutoff) return;
+        if (!first) s += ",";
+        first = false;
+        s += "{\"start\":" + String(e.start);
+        s += ",\"seconds\":" + String(e.seconds);
+        s += ",\"avgCurrentA\":" + String(e.avgCurrentA, 3);
+        s += ",\"avgDeltaC\":" + String(e.avgDeltaC, 3);
+        s += ",\"loadPct\":" + String(e.loadPct, 2);
+        s += ",\"fullLoadMinutes\":" + String(e.fullLoadMinutes, 2);
+        s += ",\"efficiencyIndex\":";
+        s += isfinite(e.efficiencyIndex) ? String(e.efficiencyIndex, 4) : "null";
+        s += ",\"efficiencySeconds\":" + String(e.efficiencySeconds);
+        s += ",\"complete\":" + String(e.complete ? "true" : "false") + "}";
+    };
+    for (size_t i = 0; i < _loadCount; ++i)
+        emit(_loadEvents[(_loadHead + i) % LOAD_CAPACITY]);
+    if (_loadEngine.active()) emit(_loadEngine.currentEvent());
+    s += "]}";
     return s;
 }
 void Analysis::resetHistoryHeader() {
     _headerChecked = false;
     _headerValid = false;
     _historyCelsius = false;
-    _stampColumn = _largeColumn = _smallColumn = _outdoorColumn = _stateColumn = -1;
+    _stampColumn = _largeColumn = _smallColumn = _outdoorColumn = _stateColumn = _currentColumn = -1;
 }
 
 void Analysis::parseHistoryLine(const String& line) {
@@ -298,6 +341,7 @@ void Analysis::parseHistoryLine(const String& line) {
             }
             else if (field == "small" || field == "small_c") _smallColumn = column;
             else if (field == "outside" || field == "outside_c") _outdoorColumn = column;
+            else if (field == "current_a") _currentColumn = column;
             else if (field == "compressor_state") _stateColumn = column;
             ++column;
             pos = next + 1;
@@ -307,7 +351,7 @@ void Analysis::parseHistoryLine(const String& line) {
         return;
     }
     if (!_headerValid) return;
-    String stamp, largeText, smallText, outdoorText, name;
+    String stamp, largeText, smallText, outdoorText, currentText, name;
     int col = 0, pos = 0;
     while (pos <= line.length()) {
         int next = line.indexOf(',', pos);
@@ -316,6 +360,7 @@ void Analysis::parseHistoryLine(const String& line) {
         if (col == _largeColumn) largeText = line.substring(pos, next);
         if (col == _smallColumn) smallText = line.substring(pos, next);
         if (col == _outdoorColumn) outdoorText = line.substring(pos, next);
+        if (col == _currentColumn) currentText = line.substring(pos, next);
         if (col == _stateColumn) name = line.substring(pos, next);
         ++col;
         pos = next + 1;
@@ -340,6 +385,14 @@ void Analysis::parseHistoryLine(const String& line) {
     if (!_historyCelsius && !_history.csvMetric()) delta *= 5.0f / 9.0f;
     if (state == CompressorState::UNKNOWN) return;
     _lastHistoryTimestamp = (uint32_t)t;
+    if (_currentColumn >= 0 && currentText.length()) {
+        float largeC = largeText.toFloat(), smallC = smallText.toFloat();
+        if (!_historyCelsius && !_history.csvMetric()) {
+            largeC = (largeC - 32.0f) * 5.0f / 9.0f;
+            smallC = (smallC - 32.0f) * 5.0f / 9.0f;
+        }
+        feedLoad((uint32_t)t, currentText.toFloat(), largeC, smallC);
+    }
     feed((uint32_t)t, state, delta);
 }
 
@@ -377,4 +430,31 @@ void Analysis::update() {
         _lastRecalc = millis();
         recalculate();
     }
+}
+
+void Analysis::appendLoad(const LoadEvent& event) {
+    if (_loadCount == LOAD_CAPACITY) { _loadHead = (_loadHead + 1) % LOAD_CAPACITY; --_loadCount; }
+    _loadEvents[(_loadHead + _loadCount) % LOAD_CAPACITY] = event;
+    ++_loadCount;
+}
+void Analysis::feedLoad(uint32_t timestamp, float current, float large, float small) {
+    if (timestamp <= _lastLoadTimestamp) return;
+    _lastLoadTimestamp = timestamp;
+    _sampleLoad = _loadEngine.feed(timestamp, current, large, small);
+    LoadEvent completed;
+    if (_loadEngine.takeCompleted(completed)) appendLoad(completed);
+}
+bool Analysis::configureLoad(float threshold, float watts, float volts, uint32_t startup, float delta) {
+    if (!isfinite(threshold) || threshold < 0 || threshold > 10 ||
+        !isfinite(watts) || watts < 100 || watts > 50000 ||
+        !isfinite(volts) || volts < 100 || volts > 300 ||
+        startup > 900 || !isfinite(delta) || delta < 0.1f || delta > 50) return false;
+    _loadConfig.offThresholdA = threshold;
+    _loadConfig.referenceW = watts;
+    _loadConfig.voltageV = volts;
+    _loadConfig.startupSeconds = startup;
+    _loadConfig.minDeltaC = delta;
+    save();
+    resetReconstruction();
+    return true;
 }
