@@ -6,25 +6,22 @@
 #include "../../src/Status.cpp"
 
 static unsigned long fakeNow = 0;
-static int adcValues[64] = {};
 unsigned long millis() { return fakeNow; }
-int analogRead(int pin) { return adcValues[pin]; }
-void pinMode(int, int) {}
+static Ads1115Sampler sampler;
 
 static void reset() {
     fakeNow = 0;
-    for (int& value : adcValues) value = 2048;
+    sampler = Ads1115Sampler();
 }
 // Set a sensor's filtered output without ADC noise or a 60-reading warm-up.
 // These are the actual temperatures the production Status object reads.
 static void setTemperature(TemperatureSensor& sensor, float c) {
-    // The production class intentionally encapsulates its sample buffer.
-    // Feed 60 identical ADC readings instead of changing production access rules.
-    // A 10K/B3950 thermistor maps temperature to an ADC count.
     const float resistance = 10000.0f * expf(3950.0f * (1.0f / (c + 273.15f) - 1.0f / 298.15f));
-    const int adc = (int)lroundf(4095.0f * resistance / (10000.0f + resistance));
-    adcValues[sensor.pin()] = adc;
-    for (int i = 0; i < 60; ++i) sensor.readCelsius();
+    const int16_t raw = (int16_t)lroundf((3.3f * resistance / (10000.0f + resistance)) / 0.000125f);
+    for (int i = 0; i < TEMP_AVERAGE_SAMPLES; ++i) {
+        sampler.inject((uint8_t)sensor.pin(), raw);
+        sensor.readCelsius();
+    }
 }
 static void sample(Status& status, TemperatureSensor& large, TemperatureSensor& small,
                    TemperatureSensor& outdoor, float l, float s, float a, unsigned long t) {
@@ -39,7 +36,7 @@ static void sample(Status& status, TemperatureSensor& large, TemperatureSensor& 
 }
 void test_warmup_and_stable_off() {
     reset();
-    TemperatureSensor l("large", 35), s("small", 36), a("outdoor", 34);
+    TemperatureSensor l("large", sampler, 0), s("small", sampler, 1), a("outdoor", sampler, 3);
     Status status(&l, &s, &a);
     sample(status,l,s,a,20,20,15,0);
     TEST_ASSERT_EQUAL_INT((int)CompressorState::UNKNOWN,(int)status.compressorState());
@@ -51,7 +48,7 @@ void test_warmup_and_stable_off() {
 }
 void test_fast_ramp_heating() {
     reset();
-    TemperatureSensor l("large",35),s("small",36),a("ambient",34);
+    TemperatureSensor l("large", sampler, 0),s("small", sampler, 1),a("ambient", sampler, 3);
     Status status(&l,&s,&a);
     sample(status,l,s,a,20,20,10,0);
     sample(status,l,s,a,20,20,10,10000);
@@ -64,7 +61,7 @@ void test_fast_ramp_heating() {
 }
 void test_plateau_and_shutdown() {
     reset();
-    TemperatureSensor l("large",35),s("small",36),a("ambient",34);
+    TemperatureSensor l("large", sampler, 0),s("small", sampler, 1),a("ambient", sampler, 3);
     Status status(&l,&s,&a);
     sample(status,l,s,a,40,25,10,0);
     sample(status,l,s,a,40,25,10,10000);
@@ -77,7 +74,7 @@ void test_plateau_and_shutdown() {
 }
 void test_standby_heating() {
     reset();
-    TemperatureSensor l("large",35),s("small",36),a("ambient",34);
+    TemperatureSensor l("large", sampler, 0),s("small", sampler, 1),a("ambient", sampler, 3);
     Status status(&l,&s,&a);
     sample(status,l,s,a,25,20,10,0);
     sample(status,l,s,a,25,20,10,10000);
