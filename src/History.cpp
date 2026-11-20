@@ -53,7 +53,7 @@ void History::write(const Analysis& analysis)
         return;
     }
 
-    static constexpr int CSV_VERSION = 8;
+    static constexpr int CSV_VERSION = 9;
 
     char filename[64];
 
@@ -95,6 +95,8 @@ void History::write(const Analysis& analysis)
             "analysis_sample_count,"
             "analysis_avg_delta_c,"
             "analysis_end_reason,"
+            "load_score_pct,"
+            "efficiency_index,"
             "firmware_version"
         );
     }
@@ -132,13 +134,14 @@ void History::write(const Analysis& analysis)
     const float average = minute ? completed.avgDeltaC : analysis.runningAverage();
 
     file.printf(
-        "%s,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.4f,%.4f,%.4f,%.4f,%.4f,%s,%u,%.3f,%s,%s\n",
+        "%s,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.3f,%.4f,%.4f,%.4f,%.4f,%.4f,%s,%u,%.3f,%s,%.3f,%.4f,%s\n",
         timestamp, large, small, outside, _status.currentAmps(),
         fabsf(large - small), fabsf(large - outside), fabsf(small - outside),
         largeSlope, smallSlope, largeSlope - smallSlope,
         outsideSlope, largeOutsideSlope,
         Status::compressorStateName(_status.compressorState()),
-        count, average, reason, BuildInfo::version()
+        count, average, reason,
+        analysis.sampleLoadPct(), analysis.sampleEfficiencyIndex(), BuildInfo::version()
     );
 
     file.flush();
