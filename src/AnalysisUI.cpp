@@ -44,6 +44,11 @@ AnalysisUI::AnalysisUI(lv_obj_t* parent, Analysis& analysis) : _analysis(analysi
     _ignoreValue = label(_root, "");
     button(_root, "MIN -10s", decrement, this);
     button(_root, "MIN +10s", increment, this);
+    label(_root, "Max Power (W)");
+    _powerValue = label(_root, "");
+    button(_root, "Power -100", powerDown, this);
+    button(_root, "Power +100", powerUp, this);
+    _powerW = (int)_analysis.json().substring(_analysis.json().indexOf("\"referenceW\":") + 13).toFloat();
     _apply = button(_root, "Recalculate", apply, this);
     lv_obj_t* separator = lv_obj_create(_root);
     lv_obj_set_size(separator, LV_PCT(100), 2);
@@ -77,6 +82,16 @@ void AnalysisUI::increment(lv_event_t* event) {
     if (ui->_ignore < 120) ui->_ignore += 10;
     ui->_dirty = true; ui->update();
 }
+void AnalysisUI::powerDown(lv_event_t* event) {
+    auto* ui = static_cast<AnalysisUI*>(lv_event_get_user_data(event));
+    if (ui->_powerW > 100) ui->_powerW -= 100;
+    ui->_dirty = true; ui->update();
+}
+void AnalysisUI::powerUp(lv_event_t* event) {
+    auto* ui = static_cast<AnalysisUI*>(lv_event_get_user_data(event));
+    if (ui->_powerW < 50000) ui->_powerW += 100;
+    ui->_dirty = true; ui->update();
+}
 void AnalysisUI::apply(lv_event_t* event) {
     auto* ui = static_cast<AnalysisUI*>(lv_event_get_user_data(event));
     bool autoMode = lv_obj_has_state(ui->_auto, LV_STATE_CHECKED);
@@ -84,6 +99,15 @@ void AnalysisUI::apply(lv_event_t* event) {
     if (!autoMode) ui->_analysis.setStrengthThresholds(lv_slider_get_value(ui->_low), lv_slider_get_value(ui->_high));
     ui->_analysis.setMinDuration(ui->_ignore);
     ui->_analysis.setDetectLowPowerHeating(lv_obj_has_state(ui->_detectLowPower, LV_STATE_CHECKED));
+    String cfg = ui->_analysis.json();
+    auto configValue = [&cfg](const char* key) {
+        String token = String((char)34) + key + String((char)34) + ":";
+        int i = cfg.indexOf(token);
+        return i < 0 ? 0.0f : cfg.substring(i + token.length()).toFloat();
+    };
+    ui->_analysis.configureLoad(configValue("offThresholdA"), ui->_powerW,
+        configValue("nominalVoltage"), (uint32_t)configValue("startupSeconds"),
+        configValue("minDeltaC"));
     ui->_analysis.recalculate();
     ui->_dirty = false;
     ui->update();
@@ -125,6 +149,14 @@ void AnalysisUI::update() {
         if (_analysis.detectLowPowerHeating()) lv_obj_add_state(_detectLowPower, LV_STATE_CHECKED);
         else lv_obj_remove_state(_detectLowPower, LV_STATE_CHECKED);
     }
+    if (!_dirty) {
+        String cfg = _analysis.json();
+        int pos = cfg.indexOf("\"referenceW\":");
+        if (pos >= 0) _powerW = (int)cfg.substring(pos + 13).toFloat();
+    }
+    char powerText[48];
+    snprintf(powerText, sizeof(powerText), "%d W", _powerW);
+    lv_label_set_text(_powerValue, powerText);
     char buf[48];
     snprintf(buf, sizeof(buf), "%ld", (long)lv_slider_get_value(_low));
     lv_label_set_text(_lowValue, buf);
