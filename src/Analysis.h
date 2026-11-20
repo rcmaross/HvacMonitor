@@ -4,6 +4,7 @@
 #include "Status.h"
 #include "History.h"
 #include "AnalysisEngine.h"
+#include "LoadEngine.h"
 
 class Analysis {
 public:
@@ -39,9 +40,24 @@ public:
     bool setStrengthThresholds(int low, int high);
     void setMinDuration(int seconds);
     String json() const;
+    float sampleLoadPct() const { return _sampleLoad.loadPct; }
+    float sampleEfficiencyIndex() const { return _sampleLoad.efficiencyIndex; }
+    bool configureLoad(float threshold, float watts, float volts, uint32_t startup, float delta);
+
 private:
     static constexpr size_t CAPACITY = 12000;
     History& _history;
+    LoadConfig _loadConfig;
+    LoadEngine _loadEngine;
+    LoadSample _sampleLoad;
+    static constexpr size_t LOAD_CAPACITY = 256;
+    LoadEvent _loadEvents[LOAD_CAPACITY] = {};
+    size_t _loadHead = 0, _loadCount = 0;
+    uint32_t _lastLoadTimestamp = 0;
+    int _currentColumn = -1;
+    void feedLoad(uint32_t timestamp, float current, float large, float small);
+    void appendLoad(const LoadEvent& event);
+
     AnalysisEvent* _events = nullptr;
     size_t _head = 0, _count = 0;
     bool _loading = false, _auto = true, _hasPrevious = false, _detectLowPowerHeating = true;
