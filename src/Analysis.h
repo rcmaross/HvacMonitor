@@ -6,6 +6,11 @@
 #include "AnalysisEngine.h"
 #include "LoadEngine.h"
 
+struct LoadSummary {
+    float runtimeMinutes = 0;
+    float fullLoadMinutes = 0;
+    float avgLoadPct = 0;
+};
 class Analysis {
 public:
     explicit Analysis(History& history);
@@ -43,6 +48,7 @@ public:
     float sampleLoadPct() const { return _sampleLoad.loadPct; }
     float sampleEfficiencyIndex() const { return _sampleLoad.efficiencyIndex; }
     bool configureLoad(float threshold, float watts, float volts, uint32_t startup, float delta);
+    LoadSummary loadSummary() const;
     float maxPowerW() const { return _loadConfig.referenceW; }
     const LoadConfig& loadConfig() const { return _loadConfig; }
 
