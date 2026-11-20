@@ -36,7 +36,7 @@ static void sample(Status& status, TemperatureSensor& large, TemperatureSensor& 
 }
 void test_warmup_and_stable_off() {
     reset();
-    TemperatureSensor l("large", sampler, 0), s("small", 36), a("outdoor", 34);
+    TemperatureSensor l("large", sampler, 0), s("small", sampler, 1), a("outdoor", sampler, 3);
     Status status(&l, &s, &a);
     sample(status,l,s,a,20,20,15,0);
     TEST_ASSERT_EQUAL_INT((int)CompressorState::UNKNOWN,(int)status.compressorState());
@@ -48,7 +48,7 @@ void test_warmup_and_stable_off() {
 }
 void test_fast_ramp_heating() {
     reset();
-    TemperatureSensor l("large", sampler, 0),s("small",36),a("ambient",34);
+    TemperatureSensor l("large", sampler, 0),s("small", sampler, 1),a("ambient", sampler, 3);
     Status status(&l,&s,&a);
     sample(status,l,s,a,20,20,10,0);
     sample(status,l,s,a,20,20,10,10000);
@@ -61,7 +61,7 @@ void test_fast_ramp_heating() {
 }
 void test_plateau_and_shutdown() {
     reset();
-    TemperatureSensor l("large", sampler, 0),s("small",36),a("ambient",34);
+    TemperatureSensor l("large", sampler, 0),s("small", sampler, 1),a("ambient", sampler, 3);
     Status status(&l,&s,&a);
     sample(status,l,s,a,40,25,10,0);
     sample(status,l,s,a,40,25,10,10000);
@@ -74,7 +74,7 @@ void test_plateau_and_shutdown() {
 }
 void test_standby_heating() {
     reset();
-    TemperatureSensor l("large", sampler, 0),s("small",36),a("ambient",34);
+    TemperatureSensor l("large", sampler, 0),s("small", sampler, 1),a("ambient", sampler, 3);
     Status status(&l,&s,&a);
     sample(status,l,s,a,25,20,10,0);
     sample(status,l,s,a,25,20,10,10000);
