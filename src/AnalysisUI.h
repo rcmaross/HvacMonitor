@@ -19,6 +19,10 @@ private:
     lv_obj_t* _highValue = nullptr;
     lv_obj_t* _ignoreValue = nullptr;
     lv_obj_t* _apply = nullptr;
+    lv_obj_t* _powerValue = nullptr;
+    int _powerW = 2400;
+    static void powerDown(lv_event_t* event);
+    static void powerUp(lv_event_t* event);
     lv_obj_t* _detectLowPower = nullptr;
     int _ignore = 10;
     bool _dirty = false;
