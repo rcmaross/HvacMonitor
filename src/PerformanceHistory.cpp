@@ -147,6 +147,22 @@ void PerformanceHistory::consolidate(uint32_t currentWeek) {
             if(check) check.close();
         }
         if(!committed) {
+            // Remove an interrupted append for this week before retrying.
+            // No daily files are deleted until a COMMIT marker is durable.
+            if(SD.exists(WEEKLY)) {
+                File old=SD.open(WEEKLY,FILE_READ);
+                const char* clean="/HvacMonitor/.weekly.clean";
+                SD.remove(clean);
+                File out=SD.open(clean,FILE_WRITE);
+                if(!old||!out) { if(old)old.close(); if(out)out.close(); continue; }
+                String key=iso(w);
+                while(old.available()) {
+                    String line=old.readStringUntil('\n');
+                    if(!line.startsWith(key+",")) out.println(line);
+                }
+                out.flush(); old.close(); out.close();
+                if(!SD.remove(WEEKLY) || !SD.rename(clean,WEEKLY)) continue;
+            }
             Aggregate bins[64]={}; size_t count=0;
             for(uint8_t d=0;d<7;d++) {
                 String path=dailyName(w+d*86400U);
