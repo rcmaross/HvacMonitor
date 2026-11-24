@@ -12,6 +12,10 @@ struct LoadEvent {
     float loadPct = 0;
     float fullLoadMinutes = 0;
     float efficiencyIndex = NAN; // A / C, lower is better
+    float avgOutdoorC = NAN;
+    float performanceScore = NAN; // C/A, higher is better; eligible samples only
+    float scoreAvgCurrentA = NAN;
+    float scoreAvgDeltaC = NAN;
     uint32_t efficiencySeconds = 0;
     bool complete = false;
 };
@@ -33,7 +37,7 @@ public:
     explicit LoadEngine(LoadConfig config = {}) : _config(config) {}
     void configure(LoadConfig config) { _config = config; reset(); }
     void reset();
-    LoadSample feed(uint32_t timestamp, float currentA, float largeC, float smallC);
+    LoadSample feed(uint32_t timestamp, float currentA, float largeC, float smallC, float outdoorC = NAN);
     bool takeCompleted(LoadEvent& event);
     bool active() const { return _active; }
     LoadEvent currentEvent() const;
@@ -43,7 +47,8 @@ private:
     bool _active = false, _hasCompleted = false;
     uint32_t _start = 0, _last = 0, _samples = 0, _eligible = 0;
     double _sumCurrent = 0, _sumDelta = 0, _sumLoad = 0;
-    double _effCurrent = 0, _effDelta = 0;
+    double _effCurrent = 0, _effDelta = 0, _sumOutdoor = 0;
+    uint32_t _outdoorSamples = 0;
     LoadEvent _completed;
     void finish();
 };
