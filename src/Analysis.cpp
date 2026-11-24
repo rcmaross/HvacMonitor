@@ -38,6 +38,7 @@ void Analysis::begin() {
     _loadConfig.minDeltaC = p.getFloat("minDeltaC", 2.0f);
     p.end();
     _loadEngine.configure(_loadConfig);
+    _performance.begin();
     if (_low != 6) _low = 6;
     if (_high <= _low || _high > 100) _high = 40;
     if (_minDuration < 0 || _minDuration > 120 || _minDuration % 10) _minDuration = 30;
@@ -401,6 +402,7 @@ void Analysis::parseHistoryLine(const String& line) {
 }
 
 void Analysis::update() {
+    _performance.update((uint32_t)time(nullptr));
     if (_loading) {
         if (_cutoff == 0) {
             struct tm timeInfo;
@@ -446,7 +448,10 @@ void Analysis::feedLoad(uint32_t timestamp, float current, float large, float sm
     _lastLoadTimestamp = timestamp;
     _sampleLoad = _loadEngine.feed(timestamp, current, large, small, outdoor);
     LoadEvent completed;
-    if (_loadEngine.takeCompleted(completed)) appendLoad(completed);
+    if (_loadEngine.takeCompleted(completed)) {
+        appendLoad(completed);
+        if (!_loading) _performance.record(completed);
+    }
 }
 bool Analysis::configureLoad(float threshold, float watts, float volts, uint32_t startup, float delta) {
     if (!isfinite(threshold) || threshold < 0 || threshold > 10 ||
