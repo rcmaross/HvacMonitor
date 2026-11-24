@@ -63,7 +63,8 @@ private:
     size_t _loadHead = 0, _loadCount = 0;
     uint32_t _lastLoadTimestamp = 0;
     int _currentColumn = -1;
-    void feedLoad(uint32_t timestamp, float current, float large, float small);
+    bool _replayingLoad = false;
+    void feedLoad(uint32_t timestamp, float current, float large, float small, float outdoor);
     void appendLoad(const LoadEvent& event);
 
     AnalysisEvent* _events = nullptr;
