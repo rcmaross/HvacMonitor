@@ -5,6 +5,7 @@
 #include "History.h"
 #include "AnalysisEngine.h"
 #include "LoadEngine.h"
+#include "PerformanceHistory.h"
 
 struct LoadSummary {
     float runtimeMinutes = 0;
@@ -57,6 +58,7 @@ private:
     History& _history;
     LoadConfig _loadConfig;
     LoadEngine _loadEngine;
+    PerformanceHistory _performance;
     LoadSample _sampleLoad;
     static constexpr size_t LOAD_CAPACITY = 256;
     LoadEvent _loadEvents[LOAD_CAPACITY] = {};
