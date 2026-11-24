@@ -246,7 +246,7 @@ void Analysis::sample(const Status& status) {
     if (_loading) return; // History is still being replayed; CSV retains samples.
     if ((uint32_t)now <= _cutoff || (uint32_t)now <= _lastLiveTimestamp) return;
     _lastLiveTimestamp = (uint32_t)now;
-    feedLoad((uint32_t)now, status.currentAmps(), large, small);
+    feedLoad((uint32_t)now, status.currentAmps(), large, small, status.outdoorTemperature());
     feed((uint32_t)now, status.compressorState(), fabsf(large - status.outdoorTemperature()));
 }
 
@@ -310,6 +310,11 @@ String Analysis::json() const {
         s += ",\"efficiencyIndex\":";
         s += isfinite(e.efficiencyIndex) ? String(e.efficiencyIndex, 4) : "null";
         s += ",\"efficiencySeconds\":" + String(e.efficiencySeconds);
+        s += ",\"avgOutdoorC\":" + (isfinite(e.avgOutdoorC) ? String(e.avgOutdoorC, 3) : String("null"));
+        s += ",\"outdoorBinC\":" + (isfinite(e.avgOutdoorC) ? String((int)floorf(e.avgOutdoorC / 5.0f) * 5) : String("null"));
+        s += ",\"performanceScore\":" + (isfinite(e.performanceScore) ? String(e.performanceScore, 4) : String("null"));
+        s += ",\"scoreAvgCurrentA\":" + (isfinite(e.scoreAvgCurrentA) ? String(e.scoreAvgCurrentA, 3) : String("null"));
+        s += ",\"scoreAvgDeltaC\":" + (isfinite(e.scoreAvgDeltaC) ? String(e.scoreAvgDeltaC, 3) : String("null"));
         s += ",\"complete\":" + String(e.complete ? "true" : "false") + "}";
     };
     for (size_t i = 0; i < _loadCount; ++i)
@@ -390,7 +395,7 @@ void Analysis::parseHistoryLine(const String& line) {
             largeC = (largeC - 32.0f) * 5.0f / 9.0f;
             smallC = (smallC - 32.0f) * 5.0f / 9.0f;
         }
-        feedLoad((uint32_t)t, currentText.toFloat(), largeC, smallC);
+        feedLoad((uint32_t)t, currentText.toFloat(), largeC, smallC, outdoorText.toFloat());
     }
     if (state != CompressorState::UNKNOWN) feed((uint32_t)t, state, delta);
 }
@@ -436,10 +441,10 @@ void Analysis::appendLoad(const LoadEvent& event) {
     _loadEvents[(_loadHead + _loadCount) % LOAD_CAPACITY] = event;
     ++_loadCount;
 }
-void Analysis::feedLoad(uint32_t timestamp, float current, float large, float small) {
+void Analysis::feedLoad(uint32_t timestamp, float current, float large, float small, float outdoor) {
     if (timestamp <= _lastLoadTimestamp) return;
     _lastLoadTimestamp = timestamp;
-    _sampleLoad = _loadEngine.feed(timestamp, current, large, small);
+    _sampleLoad = _loadEngine.feed(timestamp, current, large, small, outdoor);
     LoadEvent completed;
     if (_loadEngine.takeCompleted(completed)) appendLoad(completed);
 }
