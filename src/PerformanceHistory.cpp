@@ -95,6 +95,29 @@ void PerformanceHistory::update(uint32_t now) {
     if(lastChecked!=week) { consolidate(week); lastChecked=week; }
 }
 void PerformanceHistory::record(const LoadEvent& e) {
+    // Recent per-cycle analysis is separate from compact long-term aggregates.
+    // Keep individual event CSVs per UTC day for diagnostics/download.
+    if(e.complete) {
+        Mount m;
+        if(m.ready) {
+            time_t t=e.start; struct tm tmv={}; gmtime_r(&t,&tmv);
+            char path[80];
+            snprintf(path,sizeof(path),"%s/analysis_%04d%02d%02d.csv",DIR,
+                tmv.tm_year+1900,tmv.tm_mon+1,tmv.tm_mday);
+            bool fresh=!SD.exists(path);
+            File f=SD.open(path,FILE_APPEND);
+            if(f) {
+                if(fresh) f.println("StartUTC,DurationSeconds,AvgCurrentA,AvgDeltaC,LoadPct,FullLoadMinutes,EfficiencyIndex,AvgOutdoorC,OutdoorBinC,PerformanceScore,ScoreAvgCurrentA,ScoreAvgDeltaC,EligibleSeconds");
+                int bin=isfinite(e.avgOutdoorC)?(int)(floorf(e.avgOutdoorC/5.0f)*5):0;
+                f.printf("%s,%lu,%.4f,%.4f,%.3f,%.4f,%.5f,%.3f,%d,%.5f,%.4f,%.4f,%lu\\n",
+                    iso(e.start).c_str(),(unsigned long)e.seconds,e.avgCurrentA,e.avgDeltaC,
+                    e.loadPct,e.fullLoadMinutes,e.efficiencyIndex,e.avgOutdoorC,bin,
+                    e.performanceScore,e.scoreAvgCurrentA,e.scoreAvgDeltaC,
+                    (unsigned long)e.efficiencySeconds);
+                f.flush(); f.close();
+            }
+        }
+    }
     if(!_ready||!e.complete||!isfinite(e.avgOutdoorC)||
        !isfinite(e.performanceScore)||e.performanceScore<=0) return;
     uint32_t end=e.start+e.seconds;
