@@ -2,7 +2,8 @@
 void LoadEngine::reset() {
     _active = _hasCompleted = false;
     _start = _last = _samples = _eligible = 0;
-    _sumCurrent = _sumDelta = _sumLoad = _effCurrent = _effDelta = 0;
+    _sumCurrent = _sumDelta = _sumLoad = _effCurrent = _effDelta = _sumOutdoor = 0;
+    _outdoorSamples = 0;
 }
 float LoadEngine::loadPercent(float current, const LoadConfig& c) {
     if (!isfinite(current) || current <= c.offThresholdA || c.referenceW <= 0 || c.voltageV <= 0) return 0;
@@ -19,7 +20,13 @@ LoadEvent LoadEngine::currentEvent() const {
     e.loadPct = (float)(_sumLoad / _samples);
     e.fullLoadMinutes = (float)(_sumLoad * (10.0 / 6000.0));
     e.efficiencySeconds = _eligible * 10;
-    if (_effDelta > 0) e.efficiencyIndex = (float)(_effCurrent / _effDelta);
+    if (_effDelta > 0 && _effCurrent > 0) {
+        e.efficiencyIndex = (float)(_effCurrent / _effDelta);
+        e.performanceScore = (float)(_effDelta / _effCurrent);
+        e.scoreAvgCurrentA = (float)(_effCurrent / _eligible);
+        e.scoreAvgDeltaC = (float)(_effDelta / _eligible);
+    }
+    if (_outdoorSamples) e.avgOutdoorC = (float)(_sumOutdoor / _outdoorSamples);
     return e;
 }
 void LoadEngine::finish() {
@@ -39,7 +46,7 @@ bool LoadEngine::takeCompleted(LoadEvent& event) {
     _hasCompleted = false;
     return true;
 }
-LoadSample LoadEngine::feed(uint32_t timestamp, float current, float large, float small) {
+LoadSample LoadEngine::feed(uint32_t timestamp, float current, float large, float small, float outdoor) {
     LoadSample out;
     if (!timestamp || !isfinite(current) || current < 0) return out;
     if (_active && (timestamp <= _last || timestamp - _last > 30)) finish();
@@ -57,6 +64,7 @@ LoadSample LoadEngine::feed(uint32_t timestamp, float current, float large, floa
     _last = timestamp;
     const float delta = isfinite(large) && isfinite(small) ? fabsf(large-small) : NAN;
     out.loadPct = loadPercent(current, _config);
+    if (isfinite(outdoor)) { _sumOutdoor += outdoor; ++_outdoorSamples; }
     _sumCurrent += current;
     _sumLoad += out.loadPct;
     if (isfinite(delta)) _sumDelta += delta;
