@@ -109,7 +109,7 @@ void PerformanceHistory::record(const LoadEvent& e) {
             if(f) {
                 if(fresh) f.println("StartUTC,DurationSeconds,AvgCurrentA,AvgDeltaC,LoadPct,FullLoadMinutes,EfficiencyIndex,AvgOutdoorC,OutdoorBinC,PerformanceScore,ScoreAvgCurrentA,ScoreAvgDeltaC,EligibleSeconds");
                 int bin=isfinite(e.avgOutdoorC)?(int)(floorf(e.avgOutdoorC/5.0f)*5):0;
-                f.printf("%s,%lu,%.4f,%.4f,%.3f,%.4f,%.5f,%.3f,%d,%.5f,%.4f,%.4f,%lu\\n",
+                f.printf("%s,%lu,%.4f,%.4f,%.3f,%.4f,%.5f,%.3f,%d,%.5f,%.4f,%.4f,%lu\n",
                     iso(e.start).c_str(),(unsigned long)e.seconds,e.avgCurrentA,e.avgDeltaC,
                     e.loadPct,e.fullLoadMinutes,e.efficiencyIndex,e.avgOutdoorC,bin,
                     e.performanceScore,e.scoreAvgCurrentA,e.scoreAvgDeltaC,
